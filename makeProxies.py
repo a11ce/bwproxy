@@ -89,19 +89,9 @@ def makeImage(card):
     typeFont = drawUtil.fitOneLine("matrixb.ttf", typeLine, 600, 60)
     pen.text((70, 525), typeLine, font=typeFont, fill="black")
 
-    # TODO vertical fitting
-    # TODO allow proportional font
-    fmtText = '\n\n'.join([
-        '\n'.join(
-            textwrap.wrap(line,
-                          30,
-                          break_long_words=False,
-                          replace_whitespace=False))
-        for line in card.text.splitlines() if line.strip() != ''
-    ])
-
-    textFontSize = 30
-    textFont = ImageFont.truetype("LibMono.ttf", textFontSize)
+    # TODO  proportional font
+    fmtText, textFont = drawUtil.fitMultiLine("LibMono.ttf", card.text, 600,
+                                              275, 40)
     pen.text((70, 625), fmtText, font=textFont, fill="black")
 
     # TODO planeswalker special cases

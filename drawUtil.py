@@ -25,3 +25,33 @@ def makeTypeLine(supertypes, types, subtypes):
     typeLine += (" ".join(types)) if types is not None else ""
     typeLine += (" - " + " ".join(subtypes)) if subtypes is not None else ""
     return typeLine
+
+
+def fitMultiLine(fontPath, cardText, maxWidth, maxHeight, fontSize):
+    # the terminology here gets weird so to simplify:
+    # a rule is a single line of oracle text.
+    #       ex: Smuggler's Copter has 3 rules.
+    # line means a printed line. a rule may have multiple lines.
+
+    font = ImageFont.truetype(fontPath, fontSize)
+    fmtRules = []
+
+    for rule in cardText.split("\n"):
+        ruleLines = []
+        curLine = ""
+        for word in rule.split(" "):
+            if font.getsize(curLine + " " + word)[0] > maxWidth:
+                ruleLines.append(curLine)
+                curLine = word + " "
+            else:
+                curLine += word + " "
+        ruleLines.append(curLine)
+        fmtRules.append("\n".join(ruleLines))
+
+    fmtText = "\n\n".join(fmtRules)
+
+    if font.getsize(fmtText)[1] * len(fmtText.split("\n")) > maxHeight:
+        return fitMultiLine(fontPath, cardText, maxWidth, maxHeight,
+                            fontSize - 1)
+    else:
+        return fmtText, font
