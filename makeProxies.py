@@ -7,6 +7,8 @@ import textwrap
 import re
 import os
 
+import drawUtil
+
 
 def loadCards(fileLoc, deckName):
 
@@ -23,15 +25,24 @@ def loadCards(fileLoc, deckName):
                 line = line.strip()
                 cardCount = re.findall("^([0-9]+)x?", line)
                 cardName = line.split(cardCount[0])[1].strip()
-                if cardCount[0] != "1":
-                    print("warning! only one {} will be printed".format(
-                        cardName))
 
                 print("searching {}".format(cardName))
-
                 searchResults = Card.where(name=cardName).all()
+
                 if len(searchResults) > 0:
-                    allCards.append(searchResults[0])
+
+                    if (searchSupertypes := searchResults[0].supertypes
+                        ) is not None and "Basic" in searchSupertypes:
+                        print(
+                            "{} will not be printed. use the basic land generator (coming soon) instead!"
+                            .format(cardName))
+
+                    else:
+                        if cardCount[0] != "1":
+                            print(
+                                "warning! only one {} will be printed".format(
+                                    cardName))
+                        allCards.append(searchResults[0])
                 else:
                     print("Card not found: {}!".format(cardName))
 
@@ -43,23 +54,15 @@ def loadCards(fileLoc, deckName):
 
 
 def makeImage(card):
-    cardImg = Image.new('RGB', size=(750, 1050), color=(255, 255, 255, 0))
-    pen = ImageDraw.Draw(cardImg)
-    pen.rectangle([50, 50, 700, 1000], outline="black", width=5)
-    pen.rectangle([50, 50, 700, 135], outline="black", width=5)
-    pen.rectangle([50, 50, 700, 510], outline="black", width=5)
-    pen.rectangle([50, 50, 700, 590], outline="black", width=5)
-    pen.rectangle([50, 50, 700, 940], outline="black", width=5)
-    #50
-    nameFontSize = 60
-    nameFont = ImageFont.truetype("matrixb.ttf", nameFontSize)
-    #500 width for name
-    while nameFont.getsize(card.name)[0] > 500:
-        nameFontSize -= 10
-        nameFont = ImageFont.truetype("matrixb.ttf", nameFontSize)
-    costFont = ImageFont.truetype("MagicSymbols2008.ttf", 60)
+    cardImg, pen = drawUtil.blankCard()
+
+    #500 width for name, default font 60
+    nameFont = drawUtil.fitOneLine("matrixb.ttf", card.name, 500, 60)
     pen.text((70, 70), card.name, font=nameFont, fill="black")
 
+    # TODO dynamic name width for long names/costs
+    # mana cost TODO cleanup and fix phyrexian
+    costFont = ImageFont.truetype("MagicSymbols2008.ttf", 60)
     if card.mana_cost is not None:
         fmtCost = "".join(
             list(filter(lambda c: c not in "{} ", card.mana_cost)))
@@ -79,20 +82,13 @@ def makeImage(card):
                          anchor="ra")
             xPos -= 0 if c == "/" else 20 if c == "P" else 40
 
-    typeLine = (" ".join(card.supertypes) +
-                " ") if card.supertypes is not None else ""
-    typeLine += " ".join(card.types)
-    if card.subtypes is not None:
-        typeLine += (" - " + " ".join(card.subtypes))
-
-    typeFontSize = 60
-    typeFont = ImageFont.truetype("matrixb.ttf", nameFontSize)
-    #500 width for name
-    while typeFont.getsize(typeLine)[0] > 600:
-        typeFontSize -= 10
-        typeFont = ImageFont.truetype("matrixb.ttf", typeFontSize)
+    # 600 width for typeline, default font 60
+    typeLine = drawUtil.makeTypeLine(card.supertypes, card.types,
+                                     card.subtypes)
+    typeFont = drawUtil.fitOneLine("matrixb.ttf", typeLine, 600, 60)
     pen.text((70, 525), typeLine, font=typeFont, fill="black")
 
+    # TODO actual fitting, ideally with proportional font
     fmtText = '\n\n'.join([
         '\n'.join(
             textwrap.wrap(line,
@@ -104,10 +100,10 @@ def makeImage(card):
 
     textFontSize = 30
     textFont = ImageFont.truetype("LibMono.ttf", textFontSize)
-    #500 width for name
     pen.text((70, 625), fmtText, font=textFont, fill="black")
 
-    #print(typeLine)
+    # TODO planeswalker special cases
+    # TODO saga special cases
 
     if "Creature" in typeLine:
         pen.rectangle([550, 930, 675, 1005],
@@ -127,6 +123,7 @@ def makeImage(card):
 
     credFont = ImageFont.truetype("matrixb.ttf", 30)
     pen.text((115, 970), "a11ce", font=credFont, fill="black")
+
     return (card.name, cardImg)
 
 
