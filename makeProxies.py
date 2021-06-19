@@ -91,7 +91,7 @@ def makeImage(card):
 
     # TODO  proportional font
     fmtText, textFont = drawUtil.fitMultiLine("LibMono.ttf", card.text, 600,
-                                              275, 40)
+                                              275, 30)
     pen.text((70, 625), fmtText, font=textFont, fill="black")
 
     # TODO planeswalker special cases
