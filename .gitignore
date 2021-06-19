@@ -1,2 +1,4 @@
 *.txt
 *.p
+__pycache__/
+pages/
