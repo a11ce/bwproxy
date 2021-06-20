@@ -88,9 +88,8 @@ def makeImage(card):
     typeFont = drawUtil.fitOneLine("matrixb.ttf", typeLine, 600, 60)
     pen.text((70, 525), typeLine, font=typeFont, fill="black")
 
-    # TODO  proportional font
-    fmtText, textFont = drawUtil.fitMultiLine("LibMono.ttf", card.text, 600,
-                                              275, 30)
+    fmtText, textFont = drawUtil.fitMultiLine("MPLANTIN.ttf", card.text, 600,
+                                              300, 40)
     pen.text((70, 625), fmtText, font=textFont, fill="black")
 
     if "Creature" in typeLine or "Planeswalker" in typeLine:
