@@ -54,7 +54,6 @@ def loadCards(fileLoc, deckName):
 
 
 def makeImage(card):
-    # TODO figure out sagas
     cardImg, pen = drawUtil.blankCard()
 
     #500 width for name, default font 60
@@ -94,17 +93,19 @@ def makeImage(card):
                                               275, 30)
     pen.text((70, 625), fmtText, font=textFont, fill="black")
 
-    # TODO planeswalker special cases
-    if "Creature" in typeLine:
+    if "Creature" in typeLine or "Planeswalker" in typeLine:
         pen.rectangle([550, 930, 675, 1005],
                       outline="black",
                       fill="white",
                       width=5)
-        # TODO two-digit p/t
         ptFont = ImageFont.truetype("MPLANTIN.ttf", 60)
-        pen.text((570, 940), card.power, font=ptFont, fill="black")
-        pen.text((600, 940), "/", font=ptFont, fill="black")
-        pen.text((615, 940), card.toughness, font=ptFont, fill="black")
+        if "Creature" in typeLine:
+            # TODO two-digit p/t
+            pen.text((570, 940), card.power, font=ptFont, fill="black")
+            pen.text((600, 940), "/", font=ptFont, fill="black")
+            pen.text((615, 940), card.toughness, font=ptFont, fill="black")
+        else:
+            pen.text((595, 940), card.loyalty, font=ptFont, fill="black")
 
     proxyFont = ImageFont.truetype("matrixb.ttf", 30)
     pen.text((70, 950), "BWPROXY 1.0", font=proxyFont, fill="black")
