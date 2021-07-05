@@ -118,22 +118,6 @@ def makeImage(card):
     return (card.name, cardImg)
 
 
-def savePages(cardImages, deckName):
-    os.makedirs(os.path.dirname("pages/{}/".format(deckName)), exist_ok=True)
-    for i in tqdm(range(0, len(images), 8)):
-        batch = images[i:i + 8]
-        page = Image.new("RGB", size=(3000, 2250), color="white")
-        [
-            page.paste(batch[n][1], (750 * n, 0))
-            for n in range(min(4, len(batch)))
-        ]
-        for n in range(4, len(batch)):
-            #print(batch[n][0])
-            page.paste(batch[n][1], (750 * (n - 4), 1125))
-
-        page.save("pages/{}/{}.png".format(deckName, i), "PNG")
-
-
 if __name__ == "__main__":
     #print(deckName)
     deckName = sys.argv[1].split(".")[0]
@@ -142,4 +126,5 @@ if __name__ == "__main__":
 
     images = [makeImage(card) for card in tqdm(allCards)]
 
-    savePages(images, deckName)
+    print(images)
+    drawUtil.savePages(images, deckName)

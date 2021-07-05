@@ -1,4 +1,6 @@
 from PIL import Image, ImageDraw, ImageFont
+import os
+from tqdm import tqdm
 
 
 def blankCard():
@@ -55,3 +57,19 @@ def fitMultiLine(fontPath, cardText, maxWidth, maxHeight, fontSize):
                             fontSize - 1)
     else:
         return fmtText, font
+
+
+def savePages(images, deckName):
+    os.makedirs(os.path.dirname("pages/{}/".format(deckName)), exist_ok=True)
+    for i in tqdm(range(0, len(images), 8)):
+        batch = images[i:i + 8]
+        page = Image.new("RGB", size=(3000, 2250), color="white")
+        [
+            page.paste(batch[n][1], (750 * n, 0))
+            for n in range(min(4, len(batch)))
+        ]
+        for n in range(4, len(batch)):
+            #print(batch[n][0])
+            page.paste(batch[n][1], (750 * (n - 4), 1125))
+
+        page.save("pages/{}/{}.png".format(deckName, i), "PNG")
