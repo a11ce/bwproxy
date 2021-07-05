@@ -56,17 +56,13 @@ def loadCards(fileLoc, deckName):
 def makeImage(card):
     cardImg, pen = drawUtil.blankCard()
 
-    #500 width for name, default font 60
-    nameFont = drawUtil.fitOneLine("matrixb.ttf", card.name, 500, 60)
-    pen.text((70, 70), card.name, font=nameFont, fill="black")
-
-    # TODO dynamic name width for long names/costs
     # mana cost TODO cleanup and fix phyrexian
     costFont = ImageFont.truetype("MagicSymbols2008.ttf", 60)
+    xPos = 675
     if card.mana_cost is not None:
         fmtCost = "".join(
             list(filter(lambda c: c not in "{} ", card.mana_cost)))
-        xPos = 675
+
         for c in fmtCost[::-1]:
             if c in "/P":
                 pen.text((xPos, 75),
@@ -81,6 +77,9 @@ def makeImage(card):
                          fill="black",
                          anchor="ra")
             xPos -= 0 if c == "/" else 20 if c == "P" else 40
+    #575 default width for name, default font 60
+    nameFont = drawUtil.fitOneLine("matrixb.ttf", card.name, xPos - 100, 60)
+    pen.text((70, 85), card.name, font=nameFont, fill="black", anchor="lm")
 
     # 600 width for typeline, default font 60
     typeLine = drawUtil.makeTypeLine(card.supertypes, card.types,
