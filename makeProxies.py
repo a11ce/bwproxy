@@ -106,7 +106,7 @@ def makeImage(card):
             pen.text((595, 940), card.loyalty, font=ptFont, fill="black")
 
     proxyFont = ImageFont.truetype("matrixb.ttf", 30)
-    pen.text((70, 950), "BWPROXY 1.1", font=proxyFont, fill="black")
+    pen.text((70, 950), "BWPROXY 1.2", font=proxyFont, fill="black")
 
     brushFont = ImageFont.truetype("MagicSymbols2008.ttf", 20)
     pen.text((70, 970), "L", font=brushFont, fill="black")
