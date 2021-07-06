@@ -53,7 +53,7 @@ def loadCards(fileLoc, deckName):
     return [card for card in allCards if card is not None]
 
 
-def makeImage(card):
+def makeImage(card, setSymbol):
     cardImg, pen = drawUtil.blankCard()
 
     # mana cost TODO cleanup and fix phyrexian
@@ -81,11 +81,14 @@ def makeImage(card):
     nameFont = drawUtil.fitOneLine("matrixb.ttf", card.name, xPos - 100, 60)
     pen.text((70, 85), card.name, font=nameFont, fill="black", anchor="lm")
 
-    # 600 width for typeline, default font 60
+    # 600 width for typeline with symbol, default font 60
     typeLine = drawUtil.makeTypeLine(card.supertypes, card.types,
                                      card.subtypes)
-    typeFont = drawUtil.fitOneLine("matrixb.ttf", typeLine, 600, 60)
-    pen.text((70, 525), typeLine, font=typeFont, fill="black")
+    typeFont = drawUtil.fitOneLine("matrixb.ttf", typeLine, 540, 60)
+    pen.text((70, 530), typeLine, font=typeFont, fill="black", achor="lm")
+
+    if setSymbol is not None:
+        cardImg.paste(setSymbol, (620, 520), setSymbol)
 
     fmtText, textFont = drawUtil.fitMultiLine("MPLANTIN.ttf", card.text, 600,
                                               300, 40)
@@ -96,17 +99,22 @@ def makeImage(card):
                       outline="black",
                       fill="white",
                       width=5)
-        ptFont = ImageFont.truetype("MPLANTIN.ttf", 60)
+
         if "Creature" in typeLine:
             # TODO two-digit p/t
-            pen.text((570, 940), card.power, font=ptFont, fill="black")
-            pen.text((600, 940), "/", font=ptFont, fill="black")
-            pen.text((615, 940), card.toughness, font=ptFont, fill="black")
+            pt = "{}/{}".format(card.power, card.toughness)
+            ptFont = drawUtil.fitOneLine("MPLANTIN.ttf", pt, 85, 60)
+            pen.text((570, 970), pt, font=ptFont, fill="black", anchor="lm")
+
         else:
-            pen.text((595, 940), card.loyalty, font=ptFont, fill="black")
+            loyaltyFont = ImageFont.truetype("MPLANTIN.ttf", 60)
+            pen.text((595, 940), card.loyalty, font=loyaltyFont, fill="black")
 
     proxyFont = ImageFont.truetype("matrixb.ttf", 30)
-    pen.text((70, 950), "BWPROXY 1.2", font=proxyFont, fill="black")
+    pen.text((70, 950),
+             "BWPROXY {}".format(drawUtil.VERSION),
+             font=proxyFont,
+             fill="black")
 
     brushFont = ImageFont.truetype("MagicSymbols2008.ttf", 20)
     pen.text((70, 970), "L", font=brushFont, fill="black")
@@ -120,10 +128,12 @@ def makeImage(card):
 if __name__ == "__main__":
     #print(deckName)
     deckName = sys.argv[1].split(".")[0]
+    setSymbol = Image.open(sys.argv[2]).convert("RGBA").resize(
+        (60, 60)) if len(sys.argv) > 2 else None
 
     allCards = loadCards(sys.argv[1], deckName)
 
-    images = [makeImage(card) for card in tqdm(allCards)]
+    images = [makeImage(card, setSymbol) for card in tqdm(allCards)]
 
     print(images)
     drawUtil.savePages(images, deckName)

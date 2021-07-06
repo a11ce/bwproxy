@@ -2,6 +2,8 @@ from PIL import Image, ImageDraw, ImageFont
 import os
 from tqdm import tqdm
 
+VERSION = "1.3"
+
 
 def blankCard():
     cardImg = Image.new('RGB', size=(750, 1050), color=(255, 255, 255, 0))
