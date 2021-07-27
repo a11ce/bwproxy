@@ -6,7 +6,7 @@
 
 A program which generates test card-style grayscale proxies for Magic cards. You can cut them out, draw your own art, and sleeve them in front of real cards! 
 
-[Click here for some examples from my fully-proxied illustrated Sai deck.](https://github.com/a11ce/bwproxy/blob/main/docs/exampleCards.jpg)
+[Click here for some examples from my fully-proxied illustrated Sai deck.](https://raw.githubusercontent.com/a11ce/bwproxy/main/docs/exampleCards.jpg)
 
 ## How to use
 
@@ -41,4 +41,4 @@ If you're sleeving your BWProxies, you can just use real basic lands. But if you
 
 Source code is available [here](https://github.com/a11ce/bwproxy). All contributions are welcome by pull request or issue.
 
-BWProxy is licensed under GNU General Public License v3.0. See [LICENSE](../master/LICENSE) for full text. Fonts and mana symbols are excluded.
+BWProxy is licensed under GNU General Public License v3.0. See [LICENSE](https://github.com/a11ce/bwproxy/blob/main/LICENSE) for full text. Fonts and mana symbols are excluded.
