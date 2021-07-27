@@ -40,28 +40,22 @@ def makeSymbolLand(cardName):
     pen, img = makeBlankLand(cardName)
     symbol = Image.open(
         "symbols/{}.png".format(cardName))  #.resize((600, 600))
-    #symbol.resize((600, 600))
+
     img.paste(symbol, (75, 260), symbol)
-    #img.show()
+
     return img
 
 
-#def makeFulltext(name):
-#pen, img = makeBlankLand(name)
-
-#with open("{}.txt".format(name)) as f:
-#    text = f.read().split("%")[2]
-
-#symFont = ImageFont.truetype("MagicSymbols2008.ttf", 800)
-
-#pen.text((370, 600), "U", font=symFont, fill="black", anchor="mm")
-
-#return img
-
 if __name__ == "__main__":
-    #cards = [makeBlankLand("Island") for _ in range(8)]
-    #print(cards)
+
     cards = [(land, makeSymbolLand(land))
              for land in ["Forest", "Mountain", "Swamp", "Island", "Plains"]
              for _ in range(8)]
+
     drawUtil.savePages(cards, "symbolLands")
+
+    cards = [(land, makeBlankLand(land)[1])
+             for land in ["Forest", "Mountain", "Swamp", "Island", "Plains"]
+             for _ in range(8)]
+
+    drawUtil.savePages(cards, "blankLands")
