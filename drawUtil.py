@@ -2,7 +2,7 @@ from PIL import Image, ImageDraw, ImageFont
 import os
 from tqdm import tqdm
 
-VERSION = "1.3"
+VERSION = "1.4"
 
 
 def blankCard():

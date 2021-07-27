@@ -22,16 +22,16 @@ def makeBlankLand(cardName):
     pen.text((70, 170), typeLine, font=typeFont, fill="black", anchor="lm")
 
     proxyFont = ImageFont.truetype("matrixb.ttf", 30)
-    pen.text((70, 950),
-             "BWPROXY {}".format(drawUtil.VERSION),
+    pen.text((70, 945),
+             "v{}".format(drawUtil.VERSION),
              font=proxyFont,
              fill="black")
 
     brushFont = ImageFont.truetype("MagicSymbols2008.ttf", 20)
     pen.text((70, 970), "L", font=brushFont, fill="black")
 
-    credFont = ImageFont.truetype("matrixb.ttf", 30)
-    pen.text((115, 970), "a11ce", font=credFont, fill="black")
+    credFont = ImageFont.truetype("../MPLANTIN.ttf", 25)
+    pen.text((120, 967), "a11ce.com/BWProxy", font=credFont, fill="black")
 
     return pen, cardImg
 
