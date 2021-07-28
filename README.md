@@ -41,4 +41,6 @@ If you're sleeving your BWProxies, you can just use real basic lands. But if you
 
 Source code is available [here](https://github.com/a11ce/bwproxy). All contributions are welcome by pull request or issue.
 
+Minor version numbers represent changes to the appearence of generated cards. Patch version numbers represent changes to the functionality of card generation.
+
 BWProxy is licensed under GNU General Public License v3.0. See [LICENSE](https://github.com/a11ce/bwproxy/blob/main/LICENSE) for full text. Fonts and mana symbols are excluded.
