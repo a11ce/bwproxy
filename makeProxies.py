@@ -12,45 +12,54 @@ import drawUtil
 
 def loadCards(fileLoc, deckName):
 
-    pickleLoc = "cardcache/{}.p".format(deckName)
+    cacheLoc = "cardcahe/cardcache.p"
 
-    if os.path.exists(pickleLoc):
-        with open(pickleLoc, "rb") as p:
-            allCards = pickle.load(p)
+    if os.path.exists(cacheLoc):
+        with open(cacheLoc, "rb") as p:
+            cardCache = pickle.load(p)
     else:
-        with open(fileLoc) as f:
-            allCards = []
+        cardCache = {}
 
-            for line in tqdm(f):
-                line = line.strip()
-                cardCount = re.findall("^([0-9]+)x?", line)
-                cardName = line.split(cardCount[0])[1].strip()
+    with open(fileLoc) as f:
+        cardsInDeck = []
 
-                print("searching {}".format(cardName))
+        for line in tqdm(f):
+            line = line.strip()
+            cardCount = re.findall("^([0-9]+)x?", line)
+            cardName = line.split(cardCount[0])[1].strip()
+
+            if cardName in cardCache:
+                cardDat = cardCache[cardName]
+
+            else:
+                print("{} not in cache. searching...".format(cardName))
                 searchResults = Card.where(name=cardName).all()
 
                 if len(searchResults) > 0:
-
                     if (searchSupertypes := searchResults[0].supertypes
                         ) is not None and "Basic" in searchSupertypes:
                         print(
-                            "{} will not be printed. use the basic land generator (coming soon) instead!"
+                            "{} will not be printed. use the basic land generator (check readme) instead"
                             .format(cardName))
-
                     else:
                         if cardCount[0] != "1":
                             print(
-                                "warning! only one {} will be printed".format(
-                                    cardName))
-                        allCards.append(searchResults[0])
+                                "warning! BWProxy is singleton only for now. one {} will be printed"
+                                .format(cardName))
+
+                        cardDat = searchResults[0]
+                        cardCache[cardName] = cardDat
                 else:
-                    print("Card not found: {}!".format(cardName))
+                    print("warning! {} not found in search".format(cardName))
+                    cardDat = None
 
-        os.makedirs(os.path.dirname(pickleLoc), exist_ok=True)
-        with open(pickleLoc, "wb") as p:
-            pickle.dump(allCards, p)
+            cardsInDeck.append(cardDat)
 
-    return [card for card in allCards if card is not None]
+    os.makedirs(os.path.dirname(cacheLoc), exist_ok=True)
+    with open(cacheLoc, "wb") as p:
+        pickle.dump(cardCache, p)
+
+    return [card for card in cardsInDeck if card is not None]
 
 
 def makeImage(card, setSymbol):
