@@ -58,6 +58,7 @@ def makeImage(card, setSymbol):
 
     # mana cost TODO cleanup and fix phyrexian
     costFont = ImageFont.truetype("MagicSymbols2008.ttf", 60)
+    phyrexianFont = ImageFont.truetype("matrixb.ttf", 60)
     xPos = 675
     if card.mana_cost is not None:
         fmtCost = "".join(
@@ -67,7 +68,7 @@ def makeImage(card, setSymbol):
             if c in "/P":
                 pen.text((xPos, 75),
                          c,
-                         font=nameFont,
+                         font=phyrexianFont,
                          fill="black",
                          anchor="ra")
             else:
