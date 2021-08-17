@@ -36,22 +36,24 @@ def loadCards(fileLoc, deckName):
                 searchResults = Card.where(name=cardName).all()
 
                 if len(searchResults) > 0:
-                    if (searchSupertypes := searchResults[0].supertypes
-                        ) is not None and "Basic" in searchSupertypes:
-                        print(
-                            "{} will not be printed. use the basic land generator (check readme) instead"
-                            .format(cardName))
-                    else:
-                        if cardCount[0] != "1":
-                            print(
-                                "warning! BWProxy is singleton only for now. one {} will be printed"
-                                .format(cardName))
-
-                        cardDat = searchResults[0]
-                        cardCache[cardName] = cardDat
+                    cardDat = searchResults[0]
+                    cardCache[cardName] = cardDat
                 else:
                     print("warning! {} not found in search".format(cardName))
                     cardDat = None
+
+            if cardName in [
+                    "Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"
+            ]:
+                print(
+                    "{} will not be printed. use the basic land generator (check readme) instead"
+                    .format(cardName))
+                cardDat = None
+
+            elif cardCount[0] != "1":
+                print(
+                    "warning! BWProxy is singleton only for now. one {} will be printed"
+                    .format(cardName))
 
             cardsInDeck.append(cardDat)
 
