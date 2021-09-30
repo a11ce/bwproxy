@@ -22,11 +22,18 @@ def loadCards(fileLoc, deckName):
 
     with open(fileLoc) as f:
         cardsInDeck = []
+        flavorNames = {}
 
         for line in tqdm(f):
             line = line.strip()
             cardCount = re.findall("^([0-9]+)x?", line)
+            flavorName = re.findall("\[(.*?)\]", line)
             cardName = line.split(cardCount[0])[1].strip()
+
+            if len(flavorName) > 0:
+                flavorName = flavorName[0]
+                cardName = (cardName.split(flavorName)[0])[:-1].strip()
+                flavorNames[cardName] = flavorName
 
             if cardName in cardCache:
                 cardDat = cardCache[cardName]
@@ -61,10 +68,10 @@ def loadCards(fileLoc, deckName):
     with open(cacheLoc, "wb") as p:
         pickle.dump(cardCache, p)
 
-    return [card for card in cardsInDeck if card is not None]
+    return [card for card in cardsInDeck if card is not None], flavorNames
 
 
-def makeImage(card, setSymbol):
+def makeImage(card, setSymbol, flavorNames={}):
     cardImg, pen = drawUtil.blankCard()
 
     # mana cost TODO cleanup and fix phyrexian
@@ -89,15 +96,26 @@ def makeImage(card, setSymbol):
                          fill="black",
                          anchor="ra")
             xPos -= 0 if c == "/" else 20 if c == "P" else 40
+
     #575 default width for name, default font 60
-    nameFont = drawUtil.fitOneLine("matrixb.ttf", card.name, xPos - 100, 60)
-    pen.text((70, 85), card.name, font=nameFont, fill="black", anchor="lm")
+    if card.name in flavorNames:
+        nameFont = drawUtil.fitOneLine("matrixb.ttf", flavorNames[card.name],
+                                       xPos - 100, 60)
+        pen.text((70, 85),
+                 flavorNames[card.name],
+                 font=nameFont,
+                 fill="black",
+                 anchor="lm")
+    else:
+        nameFont = drawUtil.fitOneLine("matrixb.ttf", card.name, xPos - 100,
+                                       60)
+        pen.text((70, 85), card.name, font=nameFont, fill="black", anchor="lm")
 
     # 600 width for typeline with symbol, default font 60
     typeLine = drawUtil.makeTypeLine(card.supertypes, card.types,
                                      card.subtypes)
     typeFont = drawUtil.fitOneLine("matrixb.ttf", typeLine, 540, 60)
-    pen.text((70, 530), typeLine, font=typeFont, fill="black", achor="lm")
+    pen.text((70, 540), typeLine, font=typeFont, fill="black", anchor="lm")
 
     if setSymbol is not None:
         cardImg.paste(setSymbol, (620, 520), setSymbol)
@@ -128,6 +146,13 @@ def makeImage(card, setSymbol):
              font=proxyFont,
              fill="black")
 
+    if card.name in flavorNames:
+        pen.text((375, 490),
+                 card.name,
+                 font=proxyFont,
+                 fill="black",
+                 anchor="md")
+
     brushFont = ImageFont.truetype("MagicSymbols2008.ttf", 20)
     pen.text((70, 970), "L", font=brushFont, fill="black")
 
@@ -143,9 +168,11 @@ if __name__ == "__main__":
     setSymbol = Image.open(sys.argv[2]).convert("RGBA").resize(
         (60, 60)) if len(sys.argv) > 2 else None
 
-    allCards = loadCards(sys.argv[1], deckName)
-
-    images = [makeImage(card, setSymbol) for card in tqdm(allCards)]
+    allCards, flavorNames = loadCards(sys.argv[1], deckName)
+    images = [
+        makeImage(card, setSymbol, flavorNames=flavorNames)
+        for card in tqdm(allCards)
+    ]
 
     print(images)
     drawUtil.savePages(images, deckName)
