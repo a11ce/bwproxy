@@ -6,6 +6,7 @@ import pickle
 import textwrap
 import re
 import os
+import argparse
 
 import drawUtil
 
@@ -71,8 +72,20 @@ def loadCards(fileLoc, deckName):
     return [card for card in cardsInDeck if card is not None], flavorNames
 
 
-def makeImage(card, setSymbol, flavorNames={}):
-    cardImg, pen = drawUtil.blankCard()
+def makeImage(card, setSymbol, flavorNames={}, useColor=False):
+    if useColor:
+        if not card.colors:
+            frameColor = "#919799"
+        elif len(card.colors) == 1:
+            frameColor = drawUtil.FRAME_COLORS[card.colors[0]]
+        else:
+            frameColor = [drawUtil.FRAME_COLORS[col] for col in card.colors]
+
+    else:
+        frameColor = "black"
+    cardImg, pen = drawUtil.blankCard(frameColor=frameColor)
+    if isinstance(frameColor, list):
+        frameColor = "black"
 
     # mana cost TODO cleanup and fix phyrexian
     costFont = ImageFont.truetype("MagicSymbols2008.ttf", 60)
@@ -126,7 +139,7 @@ def makeImage(card, setSymbol, flavorNames={}):
 
     if "Creature" in typeLine or "Planeswalker" in typeLine:
         pen.rectangle([550, 930, 675, 1005],
-                      outline="black",
+                      outline=frameColor,
                       fill="white",
                       width=5)
 
@@ -163,15 +176,35 @@ def makeImage(card, setSymbol, flavorNames={}):
 
 
 if __name__ == "__main__":
-    #print(deckName)
-    deckName = sys.argv[1].split(".")[0]
-    setSymbol = Image.open(sys.argv[2]).convert("RGBA").resize(
-        (60, 60)) if len(sys.argv) > 2 else None
+    parser = argparse.ArgumentParser(
+        description='Generate printable MTG proxies')
+    parser.add_argument("decklistPath",
+                        metavar="decklist_path",
+                        help="location of decklist file")
+    parser.add_argument("setSymbolPath",
+                        nargs="?",
+                        metavar="set_symbol_path",
+                        type=str,
+                        help="location of set symbol file (optional)")
+    parser.add_argument("--color",
+                        action="store_true",
+                        help="print card frames and mana symbols in color")
 
-    allCards, flavorNames = loadCards(sys.argv[1], deckName)
+    args = parser.parse_args()
+
+    deckName = args.decklistPath.split(".")[0]
+    if args.setSymbolPath:
+        setSymbol = Image.open(args.setSymbolPath).convert("RGBA").resize(
+            (60, 60))
+    else:
+        setSymbol = None
+
+    allCards, flavorNames = loadCards(args.decklistPath, deckName)
     images = [
-        makeImage(card, setSymbol, flavorNames=flavorNames)
-        for card in tqdm(allCards)
+        makeImage(card,
+                  setSymbol,
+                  flavorNames=flavorNames,
+                  useColor=args.color) for card in tqdm(allCards)
     ]
 
     print(images)
