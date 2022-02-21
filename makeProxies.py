@@ -1,5 +1,8 @@
-from mtgsdk import Card
-from PIL import Image, ImageDraw, ImageFont
+from typing import Literal, Optional
+from mtgsdk.card import Card
+from PIL.Image import Image
+from PIL.ImageDraw import ImageDraw
+from PIL.ImageFont import ImageFont
 from tqdm import tqdm
 import sys
 import pickle
@@ -10,10 +13,16 @@ import argparse
 
 import drawUtil
 
+Deck = list[Card]
+Flavor = dict[str, str]
+MTG_COLORS = Literal["White", "Blue", "Black", "Red", "Green"]
 
-def loadCards(fileLoc, deckName):
 
-    cacheLoc = "cardcahe/cardcache.p"
+def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
+
+    cacheLoc = "cardcache/cardcache.p"
+
+    cardCache: dict[str, Card]
 
     if os.path.exists(cacheLoc):
         with open(cacheLoc, "rb") as p:
@@ -22,54 +31,59 @@ def loadCards(fileLoc, deckName):
         cardCache = {}
 
     with open(fileLoc) as f:
-        cardsInDeck = []
-        flavorNames = {}
+        cardsInDeck: Deck = []
+        flavorNames: Flavor = {}
 
-        for line in tqdm(f):
-            line = line.strip()
-            cardCount = re.findall("^([0-9]+)x?", line)
-            flavorName = re.findall("\[(.*?)\]", line)
-            cardName = line.split(cardCount[0])[1].strip()
+        doubleSpacesRegex = re.compile(r" {2,}")
+        cardCountRegex = re.compile(r"^([0-9]+)x?")
+        flavorNameRegex = re.compile(r"\[(.*?)\]")
+        cardNameRegex = re.compile(r"^(?:\d+x? )?(.*)(?: \[.*?\])?")
 
-            if len(flavorName) > 0:
-                flavorName = flavorName[0]
-                cardName = (cardName.split(flavorName)[0])[:-1].strip()
+        line: str
+        for line in tqdm(f): # type: ignore
+            line = doubleSpacesRegex.sub(" ", line.strip())
+
+            cardCountMatch = cardCountRegex.search(line)
+            cardCount = int(cardCountMatch.groups()[0]) if cardCountMatch else 1
+
+            flavorNameMatch = flavorNameRegex.search(line)
+
+            cardNameMatch = cardNameRegex.search(line)
+            cardName: str
+            if cardNameMatch:
+                cardName = cardNameMatch.groups()[0]
+            else:
+                raise Exception(f"No card name found in line {line}")
+
+            if flavorNameMatch:
+                flavorName = flavorNameMatch.groups()[0]
                 flavorNames[cardName] = flavorName
 
             if cardName in cardCache:
                 cardDat = cardCache[cardName]
-
             else:
-                print("{} not in cache. searching...".format(cardName))
-                searchResults = Card.where(name=cardName).all()
+                print(f"{cardName} not in cache. searching...")
+                searchResults: Deck = Card.where(name=cardName).all() # type: ignore
 
                 if len(searchResults) > 0:
                     cardDat = searchResults[0]
                     cardCache[cardName] = cardDat
                 else:
-                    print("warning! {} not found in search".format(cardName))
-                    cardDat = None
+                    print(f"Warning! {cardName} not found in search")
+                    continue
 
-            if cardName in [
-                    "Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"
-            ]:
-                print(
-                    "{} will not be printed. use the basic land generator (check readme) instead"
-                    .format(cardName))
-                cardDat = None
+            if cardName in ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]:
+                print(f"{cardName} will not be printed. use the basic land generator (check readme) instead")
+                continue
 
-            elif cardCount[0] != "1":
-                print(
-                    "warning! BWProxy is singleton only for now. one {} will be printed"
-                    .format(cardName))
-
-            cardsInDeck.append(cardDat)
+            for _ in range(cardCount):
+                cardsInDeck.append(cardDat)
 
     os.makedirs(os.path.dirname(cacheLoc), exist_ok=True)
     with open(cacheLoc, "wb") as p:
         pickle.dump(cardCache, p)
 
-    return [card for card in cardsInDeck if card is not None], flavorNames
+    return (cardsInDeck, flavorNames)
 
 
 def makeImage(card, setSymbol, flavorNames={}, useColor=False):
@@ -199,7 +213,7 @@ if __name__ == "__main__":
     else:
         setSymbol = None
 
-    allCards, flavorNames = loadCards(args.decklistPath, deckName)
+    allCards, flavorNames = loadCards(args.decklistPath)
     images = [
         makeImage(card,
                   setSymbol,
@@ -207,5 +221,4 @@ if __name__ == "__main__":
                   useColor=args.color) for card in tqdm(allCards)
     ]
 
-    print(images)
     drawUtil.savePages(images, deckName)
