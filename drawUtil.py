@@ -2,32 +2,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageColor
 import os
 from tqdm import tqdm
 
-VERSION = "1.5"
-
-"""
-TODO: Split / Fuse / Flip / Adventure frames (Maybe also Class, Sagas and Leveler?)
-Better Double-Faced card handler (front/back face symbols, add both to the file)
-Better search functionality:
-* searching "Likeness of the Seeker" results in "Azusa's Many Journeys"
-* seaching "Alive" results in "Buried Alive" (should be "Alive // Well")
-* searching "Endbringer" results in "Shauku, Endbringer"
-Replace magic numbers (750, 1050...) with constants
-Add options for A4 and letter paper
-Better mana symbols, both in cost and in text
-(should be in the new font file, only problem is Tamiyo, Compleated Sage)
-Color indicator in text
-Tested searching for Failure // Comply via api, Failure is the first result
-"""
-
-# MID basics plus similar yellow-white
-FRAME_COLORS = {
-    "White": "#fcf4a3",
-    "Blue": "#127db4",
-    "Black": "#692473",
-    "Red": "#e13c32",
-    "Green": "#0f7846",
-    "Gold": "#d4af37"
-}
+import constants
 
 RgbColor = tuple[int, int, int] | tuple[int, int, int, int]
 
@@ -73,7 +48,7 @@ def blankCard(frameColor: str | list[str] = "black"):
         return makeFrame(frameColor)
 
     if len(frameColor) > 2:
-        return makeFrame(FRAME_COLORS["Gold"])
+        return makeFrame(constants.FRAME_COLORS["Gold"])
 
     frameBlank, pen = makeFrame("black")
     multiBlank = multicolorBlank(frameColor)
