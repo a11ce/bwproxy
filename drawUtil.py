@@ -48,7 +48,7 @@ def blankCard(frameColor: str | list[str] = "black"):
         return makeFrame(frameColor)
 
     if len(frameColor) > 2:
-        return makeFrame(constants.FRAME_COLORS["Gold"])
+        return makeFrame(constants.FRAME_COLORS["M"])
 
     frameBlank, pen = makeFrame("black")
     multiBlank = multicolorBlank(frameColor)
