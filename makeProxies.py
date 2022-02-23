@@ -1,5 +1,6 @@
-from typing import Optional, overload
-from mtgsdk.card import Card
+from __future__ import annotations
+from typing import overload, Any
+from scrython import Named, ScryfallError
 from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 import sys
@@ -10,6 +11,111 @@ import os
 import argparse
 
 import drawUtil, constants
+
+
+
+class Card:
+    """
+        Handler class for a card, a card face, or a card half.
+        Can be initialized with a Scryfall search result.
+        Automatically sets aftermath and fuse layouts.
+        Automatically sets layout and card face for transform and modal_dfc faces
+        Has a method for color indicator reminder text
+    """
+    def __init__(self, card: dict[str, Any] | Named):
+        if isinstance(card, Named):
+            self.data: dict[str, Any] = card.scryfallJson  # type: ignore
+        else:
+            self.data = card
+
+        try:
+            layout = self.layout
+        except:
+            return
+        if layout == "split":
+            secondHalfText = self.card_faces[1].oracle_text.split("\n")
+            if secondHalfText[0].split(" ")[0] == "Aftermath":
+                self.data["layout"] = "aftermath"
+            if secondHalfText[-1].split(" ")[0] == "Fuse":
+                self.data["layout"] = "fuse"
+
+    def _checkForKey(self, attr: str) -> Any:
+        if attr in self.data:
+            return self.data[attr]
+        raise KeyError(f"This card has no key {attr}")
+
+    @property
+    def name(self) -> str:
+        return self._checkForKey("name")
+
+    @property
+    def colors(self) -> list[constants.MTG_COLORS]:
+        return self._checkForKey("colors")
+
+    @property
+    def color_indicator(self) -> list[constants.MTG_COLORS]:
+        return self._checkForKey("color_indicator")
+
+    @property
+    def mana_cost(self) -> str:
+        return self._checkForKey("mana_cost")
+
+    @property
+    def oracle_text(self) -> str:
+        return self._checkForKey("oracle_text")
+
+    @property
+    def type_line(self) -> str:
+        return self._checkForKey("type_line")
+
+    @property
+    def power(self) -> str:
+        return self._checkForKey("power")
+
+    @property
+    def toughness(self) -> str:
+        return self._checkForKey("toughness")
+
+    @property
+    def loyalty(self) -> str:
+        return self._checkForKey("loyalty")
+
+    @property
+    def layout(self) -> str:
+        return self._checkForKey("layout")
+
+    @property
+    def card_faces(self) -> list[Card]:
+        faces = self._checkForKey("card_faces")
+        layout = self.layout
+        if layout in constants.DFC_LAYOUTS:
+            layoutSymbol: str = "TDFC" if layout == "transform" else "MDFC"
+            faces[0]["layout"] = layout
+            faces[1]["layout"] = layout
+            faces[0]["face"] = f"{{{layoutSymbol}_FRONT}}"
+            faces[1]["face"] = f"{{{layoutSymbol}_BACK}}"
+        return [Card(face) for face in faces]
+
+    @property
+    def face(self) -> str:
+        return self._checkForKey("face")
+
+    @property
+    def color_indicator_reminder_text(self) -> str:
+        try:
+            cardColorIndicator: list[constants.MTG_COLORS] = self.color_indicator
+        except:
+            return ""
+        if len(cardColorIndicator) == 5:
+            colorIndicatorText = "all colors"
+        else:
+            colorIndicatorNames = [constants.COLOR_NAMES[c] for c in cardColorIndicator]
+            if len(colorIndicatorNames) == 1:
+                colorIndicatorText = colorIndicatorNames[0]
+            else:
+                colorIndicatorText = f'{", ".join(colorIndicatorNames[:-1])} and {colorIndicatorNames[-1]}'
+        return f"({self.name} is {colorIndicatorText}.)\n"
+
 
 Deck = list[Card]
 Flavor = dict[str, str]
@@ -88,46 +194,25 @@ def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
                 continue
 
             if cardName in cardCache:
-                cardDat = cardCache[cardName]
+                cardData = cardCache[cardName]
             else:
                 print(f"{cardName} not in cache. searching...")
-                searchResults: Deck = Card.where(name=cardName).all()
-
-                if len(searchResults) == 0:
-                    print(f"Warning! {cardName} not found in search")
+                try:
+                    cardData: Card = Card(Named(fuzzy=cardName))
+                except ScryfallError as err:
+                    print(f"Skipping {cardName}. {err}")
                     continue
 
-                cardNames: list[str] = [c.name for c in searchResults]
-                if len(set(cardNames)) == 1:
-                    # Search yielded only one result
-                    pass
-                elif any([c == cardName for c in cardNames]):
-                    searchResults = [
-                        card for card in searchResults if card.name == cardName
-                    ]
-                else:
-                    filterRe = re.compile(f"(?:^{cardName} //|// {cardName}$)")
-                    cardNames = list(
-                        filter(lambda n: filterRe.search(n) is not None, cardNames)
-                    )
-                    if len(set(cardNames)) == 1:
-                        searchResults = list(
-                            filter(
-                                lambda c: filterRe.search(c.name) is not None,
-                                searchResults,
-                            )
-                        )
-                    else:
-                        print(
-                            f"Warning! {cardName} does not uniquely identify a card, skipping"
-                        )
-                        continue
+                cardCache[cardName] = cardData
 
-                cardDat = searchResults[0]
-                cardCache[cardName] = cardDat
-
-            for _ in range(cardCount):
-                cardsInDeck.append(cardDat)
+            if cardData.layout in constants.DFC_LAYOUTS:
+                facesData = cardData.card_faces
+                for _ in range(cardCount):
+                    cardsInDeck.append(facesData[0])
+                    cardsInDeck.append(facesData[1])
+            else:
+                for _ in range(cardCount):
+                    cardsInDeck.append(cardData)
 
     os.makedirs(os.path.dirname(constants.CACHE_LOC), exist_ok=True)
     with open(constants.CACHE_LOC, "wb") as p:
@@ -141,57 +226,64 @@ def makeImage(
     setSymbol: Image.Image | None,
     flavorNames: Flavor = {},
     useColor: bool = False,
+    useTextSymbols: bool = True,
 ):
 
-    cardColors: Optional[list[constants.MTG_COLORS]] = card.colors
-    cardManaCost: str | None = card.mana_cost
     cardName: str = card.name
-    cardText: str | None = printSymbols(card.text)  # type: ignore
+    cardColors: list[constants.MTG_COLORS] = card.colors
+    cardManaCost: str = printSymbols(card.mana_cost)
+
+    # Temp handler for flip / split / fuse cards
+    try:
+        cardText: str = card.oracle_text
+    except KeyError:
+        cardText: str = card.card_faces[0].oracle_text
+    # Add text replacing the color indicator (if present)
+    cardText = card.color_indicator_reminder_text + cardText
+
+    cardTypeLine: str = card.type_line
+    cardLayout: str = card.layout
+
+    if useTextSymbols:
+        cardText = printSymbols(cardText)
 
     if useColor:
         if not cardColors:
-            frameColor = constants.FRAME_COLORS["Colorless"]
+            frameColor = constants.FRAME_COLORS["C"]
         elif len(cardColors) == 1:
             frameColor = constants.FRAME_COLORS[cardColors[0]]
         else:
             frameColor = [constants.FRAME_COLORS[col] for col in cardColors]
     else:
-        frameColor = "black"
+        frameColor = constants.FRAME_COLORS["default"]
 
     cardImg, pen = drawUtil.blankCard(frameColor=frameColor)
     if isinstance(frameColor, list):
         if len(frameColor) > 2:
-            frameColor = constants.FRAME_COLORS["Gold"]
+            frameColor = constants.FRAME_COLORS["M"]
         else:
-            frameColor = "black"
+            frameColor = constants.FRAME_COLORS["default"]
 
     # mana cost TODO cleanup and fix phyrexian
     costFont = ImageFont.truetype("MPLANTIN.ttf", 60)
     xPos = 685
-
-    if cardManaCost is not None:
-        fmtCost = printSymbols(cardManaCost)
-
-        for c in fmtCost[::-1]:
-            pen.text((xPos, 65), c, font=costFont, fill="black", anchor="ra")
+    for c in cardManaCost[::-1]:
+        pen.text((xPos, 65), c, font=costFont, fill="black", anchor="ra")
+        if c in " /":
+            xPos -= 20
+        else:
             xPos -= 55
 
+    displayName = flavorNames[cardName] if cardName in flavorNames else cardName
+    if cardLayout in ["transform", "modal_dfc"]:
+        displayName = printSymbols(f"{card.face} {displayName}")
     # 575 default width for name, default font 60
-    if cardName in flavorNames:
-        nameFont = drawUtil.fitOneLine(
-            "matrixb.ttf", flavorNames[cardName], xPos - 100, 60
-        )
-        pen.text(
-            (70, 85), flavorNames[cardName], font=nameFont, fill="black", anchor="lm"
-        )
-    else:
-        nameFont = drawUtil.fitOneLine("matrixb.ttf", cardName, xPos - 100, 60)
-        pen.text((70, 85), cardName, font=nameFont, fill="black", anchor="lm")
+    nameFont = drawUtil.fitOneLine("matrixb.ttf", displayName, xPos - 100, 60)
+    pen.text((70, 85), displayName, font=nameFont, fill="black", anchor="lm")
 
     # 600 width for typeline with symbol, default font 60
-    typeLine: str = card.type
-    typeFont = drawUtil.fitOneLine("matrixb.ttf", typeLine, 540, 60)
-    pen.text((70, 540), typeLine, font=typeFont, fill="black", anchor="lm")
+    typeFont = drawUtil.fitOneLine("matrixb.ttf", cardTypeLine, 540, 60)
+    pen.text((70, 540), cardTypeLine, font=typeFont, fill="black", anchor="lm")
 
     if setSymbol is not None:
         cardImg.paste(setSymbol, (620, 520), setSymbol)
@@ -199,10 +291,14 @@ def makeImage(
     fmtText, textFont = drawUtil.fitMultiLine("MPLANTIN.ttf", cardText, 600, 350, 40)
     pen.text((70, 600), fmtText, font=textFont, fill="black")
 
-    if "Creature" in typeLine or "Planeswalker" in typeLine or "Vehicle" in typeLine:
+    if (
+        "Creature" in cardTypeLine
+        or "Planeswalker" in cardTypeLine
+        or "Vehicle" in cardTypeLine
+    ):
         pen.rectangle([550, 930, 675, 1005], outline=frameColor, fill="white", width=5)
 
-        if "Creature" in typeLine or "Vehicle" in typeLine:
+        if "Creature" in cardTypeLine or "Vehicle" in cardTypeLine:
             # TODO two-digit p/t
             pt = "{}/{}".format(card.power, card.toughness)
             ptFont = drawUtil.fitOneLine("MPLANTIN.ttf", pt, 85, 60)
