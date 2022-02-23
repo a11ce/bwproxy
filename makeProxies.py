@@ -1,8 +1,6 @@
 from typing import Literal, Optional
 from mtgsdk.card import Card
-from PIL.Image import Image
-from PIL.ImageDraw import ImageDraw
-from PIL.ImageFont import ImageFont
+from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 import sys
 import pickle
@@ -11,21 +9,17 @@ import re
 import os
 import argparse
 
-import drawUtil
+import drawUtil, constants
 
 Deck = list[Card]
 Flavor = dict[str, str]
-MTG_COLORS = Literal["White", "Blue", "Black", "Red", "Green"]
-
 
 def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
 
-    cacheLoc = "cardcache/cardcache.p"
-
     cardCache: dict[str, Card]
 
-    if os.path.exists(cacheLoc):
-        with open(cacheLoc, "rb") as p:
+    if os.path.exists(constants.CACHE_LOC):
+        with open(constants.CACHE_LOC, "rb") as p:
             cardCache = pickle.load(p)
     else:
         cardCache = {}
@@ -37,7 +31,7 @@ def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
         doubleSpacesRegex = re.compile(r" {2,}")
         cardCountRegex = re.compile(r"^([0-9]+)x?")
         flavorNameRegex = re.compile(r"\[(.*?)\]")
-        cardNameRegex = re.compile(r"^(?:\d+x? )?(.*)(?: \[.*?\])?")
+        cardNameRegex = re.compile(r"^(?:\d+x? )?(.*?)(?: \[.*?\])?$")
 
         line: str
         for line in tqdm(f): # type: ignore
@@ -79,8 +73,8 @@ def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
             for _ in range(cardCount):
                 cardsInDeck.append(cardDat)
 
-    os.makedirs(os.path.dirname(cacheLoc), exist_ok=True)
-    with open(cacheLoc, "wb") as p:
+    os.makedirs(os.path.dirname(constants.CACHE_LOC), exist_ok=True)
+    with open(constants.CACHE_LOC, "wb") as p:
         pickle.dump(cardCache, p)
 
     return (cardsInDeck, flavorNames)
@@ -89,11 +83,11 @@ def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
 def makeImage(card, setSymbol, flavorNames={}, useColor=False):
     if useColor:
         if not card.colors:
-            frameColor = "#919799"
+            frameColor = constants.FRAME_COLORS["Colorless"]
         elif len(card.colors) == 1:
-            frameColor = drawUtil.FRAME_COLORS[card.colors[0]]
+            frameColor = constants.FRAME_COLORS[card.colors[0]]
         else:
-            frameColor = [drawUtil.FRAME_COLORS[col] for col in card.colors]
+            frameColor = [constants.FRAME_COLORS[col] for col in card.colors]
 
     else:
         frameColor = "black"
@@ -169,7 +163,7 @@ def makeImage(card, setSymbol, flavorNames={}, useColor=False):
 
     proxyFont = ImageFont.truetype("matrixb.ttf", 30)
     pen.text((70, 945),
-             "v{}".format(drawUtil.VERSION),
+             "v{}".format(constants.VERSION),
              font=proxyFont,
              fill="black")
 
