@@ -16,6 +16,8 @@ FRAME_COLORS = {
     "Colorless": "#919799"
 }
 
+BASIC_LANDS = ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]
+
 MAGIC_SYMBOL_ORDER = ['W', 'U', 'B', 'R', 'G']
 # Can be obtained programmatically, but that's more concise 
 MAGIC_HYBRID_ORDER = ['W/U', 'U/B', 'B/R', 'R/G', 'G/W', 'W/B', 'U/R', 'B/G', 'R/W', 'G/U']
