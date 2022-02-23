@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Optional, overload
 from mtgsdk.card import Card
 from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
@@ -13,6 +13,34 @@ import drawUtil, constants
 
 Deck = list[Card]
 Flavor = dict[str, str]
+
+specialTextRegex = re.compile(r"\{.+?\}")
+
+
+def replFunction(m: re.Match[str]):
+    t = m.group()
+    if t in constants.FONT_CODE_POINT:
+        return constants.FONT_CODE_POINT[t]
+    return t
+
+
+@overload
+def printSymbols(text: str) -> str:
+    ...
+
+
+@overload
+def printSymbols(text: None) -> None:
+    ...
+
+
+def printSymbols(text: str | None) -> str | None:
+    if text is None:
+        return None
+    # First − is \u2212, which is not in the font but is used in Planeswalker abilities
+    # The second is \u002d, the ASCII one
+    return specialTextRegex.sub(replFunction, text).replace("−", "-")
+
 
 def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
 
@@ -34,7 +62,7 @@ def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
         cardNameRegex = re.compile(r"^(?:\d+x? )?(.*?)(?: \[.*?\])?$")
 
         line: str
-        for line in tqdm(f): # type: ignore
+        for line in tqdm(f):  # type: ignore
             line = doubleSpacesRegex.sub(" ", line.strip())
 
             cardCountMatch = cardCountRegex.search(line)
@@ -53,22 +81,50 @@ def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
                 flavorName = flavorNameMatch.groups()[0]
                 flavorNames[cardName] = flavorName
 
+            if cardName in constants.BASIC_LANDS:
+                print(
+                    f"{cardName} will not be printed. use the basic land generator (check readme) instead"
+                )
+                continue
+
             if cardName in cardCache:
                 cardDat = cardCache[cardName]
             else:
                 print(f"{cardName} not in cache. searching...")
-                searchResults: Deck = Card.where(name=cardName).all() # type: ignore
+                searchResults: Deck = Card.where(name=cardName).all()
 
-                if len(searchResults) > 0:
-                    cardDat = searchResults[0]
-                    cardCache[cardName] = cardDat
-                else:
+                if len(searchResults) == 0:
                     print(f"Warning! {cardName} not found in search")
                     continue
 
-            if cardName in ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]:
-                print(f"{cardName} will not be printed. use the basic land generator (check readme) instead")
-                continue
+                cardNames: list[str] = [c.name for c in searchResults]
+                if len(set(cardNames)) == 1:
+                    # Search yielded only one result
+                    pass
+                elif any([c == cardName for c in cardNames]):
+                    searchResults = [
+                        card for card in searchResults if card.name == cardName
+                    ]
+                else:
+                    filterRe = re.compile(f"(?:^{cardName} //|// {cardName}$)")
+                    cardNames = list(
+                        filter(lambda n: filterRe.search(n) is not None, cardNames)
+                    )
+                    if len(set(cardNames)) == 1:
+                        searchResults = list(
+                            filter(
+                                lambda c: filterRe.search(c.name) is not None,
+                                searchResults,
+                            )
+                        )
+                    else:
+                        print(
+                            f"Warning! {cardName} does not uniquely identify a card, skipping"
+                        )
+                        continue
+
+                cardDat = searchResults[0]
+                cardCache[cardName] = cardDat
 
             for _ in range(cardCount):
                 cardsInDeck.append(cardDat)
@@ -80,78 +136,73 @@ def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
     return (cardsInDeck, flavorNames)
 
 
-def makeImage(card, setSymbol, flavorNames={}, useColor=False):
-    if useColor:
-        if not card.colors:
-            frameColor = constants.FRAME_COLORS["Colorless"]
-        elif len(card.colors) == 1:
-            frameColor = constants.FRAME_COLORS[card.colors[0]]
-        else:
-            frameColor = [constants.FRAME_COLORS[col] for col in card.colors]
+def makeImage(
+    card: Card,
+    setSymbol: Image.Image | None,
+    flavorNames: Flavor = {},
+    useColor: bool = False,
+):
 
+    cardColors: Optional[list[constants.MTG_COLORS]] = card.colors
+    cardManaCost: str | None = card.mana_cost
+    cardName: str = card.name
+    cardText: str | None = printSymbols(card.text)  # type: ignore
+
+    if useColor:
+        if not cardColors:
+            frameColor = constants.FRAME_COLORS["Colorless"]
+        elif len(cardColors) == 1:
+            frameColor = constants.FRAME_COLORS[cardColors[0]]
+        else:
+            frameColor = [constants.FRAME_COLORS[col] for col in cardColors]
     else:
         frameColor = "black"
+
     cardImg, pen = drawUtil.blankCard(frameColor=frameColor)
     if isinstance(frameColor, list):
-        frameColor = "black"
+        if len(frameColor) > 2:
+            frameColor = constants.FRAME_COLORS["Gold"]
+        else:
+            frameColor = "black"
 
     # mana cost TODO cleanup and fix phyrexian
-    costFont = ImageFont.truetype("MagicSymbols2008.ttf", 60)
-    phyrexianFont = ImageFont.truetype("matrixb.ttf", 60)
-    xPos = 675
-    if card.mana_cost is not None:
-        fmtCost = "".join(
-            list(filter(lambda c: c not in "{} ", card.mana_cost)))
+    costFont = ImageFont.truetype("MPLANTIN.ttf", 60)
+    xPos = 685
+
+    if cardManaCost is not None:
+        fmtCost = printSymbols(cardManaCost)
 
         for c in fmtCost[::-1]:
-            if c in "/P":
-                pen.text((xPos, 75),
-                         c,
-                         font=phyrexianFont,
-                         fill="black",
-                         anchor="ra")
-            else:
-                pen.text((xPos, 60),
-                         c,
-                         font=costFont,
-                         fill="black",
-                         anchor="ra")
-            xPos -= 0 if c == "/" else 20 if c == "P" else 40
+            pen.text((xPos, 65), c, font=costFont, fill="black", anchor="ra")
+            xPos -= 55
 
-    #575 default width for name, default font 60
-    if card.name in flavorNames:
-        nameFont = drawUtil.fitOneLine("matrixb.ttf", flavorNames[card.name],
-                                       xPos - 100, 60)
-        pen.text((70, 85),
-                 flavorNames[card.name],
-                 font=nameFont,
-                 fill="black",
-                 anchor="lm")
+    # 575 default width for name, default font 60
+    if cardName in flavorNames:
+        nameFont = drawUtil.fitOneLine(
+            "matrixb.ttf", flavorNames[cardName], xPos - 100, 60
+        )
+        pen.text(
+            (70, 85), flavorNames[cardName], font=nameFont, fill="black", anchor="lm"
+        )
     else:
-        nameFont = drawUtil.fitOneLine("matrixb.ttf", card.name, xPos - 100,
-                                       60)
-        pen.text((70, 85), card.name, font=nameFont, fill="black", anchor="lm")
+        nameFont = drawUtil.fitOneLine("matrixb.ttf", cardName, xPos - 100, 60)
+        pen.text((70, 85), cardName, font=nameFont, fill="black", anchor="lm")
 
     # 600 width for typeline with symbol, default font 60
-    typeLine = drawUtil.makeTypeLine(card.supertypes, card.types,
-                                     card.subtypes)
+    typeLine: str = card.type
     typeFont = drawUtil.fitOneLine("matrixb.ttf", typeLine, 540, 60)
     pen.text((70, 540), typeLine, font=typeFont, fill="black", anchor="lm")
 
     if setSymbol is not None:
         cardImg.paste(setSymbol, (620, 520), setSymbol)
 
-    fmtText, textFont = drawUtil.fitMultiLine("MPLANTIN.ttf", card.text, 600,
-                                              300, 40)
-    pen.text((70, 625), fmtText, font=textFont, fill="black")
+    fmtText, textFont = drawUtil.fitMultiLine("MPLANTIN.ttf", cardText, 600, 350, 40)
+    pen.text((70, 600), fmtText, font=textFont, fill="black")
 
-    if "Creature" in typeLine or "Planeswalker" in typeLine:
-        pen.rectangle([550, 930, 675, 1005],
-                      outline=frameColor,
-                      fill="white",
-                      width=5)
+    if "Creature" in typeLine or "Planeswalker" in typeLine or "Vehicle" in typeLine:
+        pen.rectangle([550, 930, 675, 1005], outline=frameColor, fill="white", width=5)
 
-        if "Creature" in typeLine:
+        if "Creature" in typeLine or "Vehicle" in typeLine:
             # TODO two-digit p/t
             pt = "{}/{}".format(card.power, card.toughness)
             ptFont = drawUtil.fitOneLine("MPLANTIN.ttf", pt, 85, 60)
@@ -162,57 +213,53 @@ def makeImage(card, setSymbol, flavorNames={}, useColor=False):
             pen.text((595, 940), card.loyalty, font=loyaltyFont, fill="black")
 
     proxyFont = ImageFont.truetype("matrixb.ttf", 30)
-    pen.text((70, 945),
-             "v{}".format(constants.VERSION),
-             font=proxyFont,
-             fill="black")
+    pen.text((70, 945), "v{}".format(constants.VERSION), font=proxyFont, fill="black")
 
-    if card.name in flavorNames:
-        pen.text((375, 490),
-                 card.name,
-                 font=proxyFont,
-                 fill="black",
-                 anchor="md")
+    if cardName in flavorNames:
+        pen.text((375, 490), cardName, font=proxyFont, fill="black", anchor="md")
 
-    brushFont = ImageFont.truetype("MagicSymbols2008.ttf", 20)
-    pen.text((70, 970), "L", font=brushFont, fill="black")
-
+    brush = constants.FONT_CODE_POINT["{PAINTBRUSH}"]
     credFont = ImageFont.truetype("MPLANTIN.ttf", 25)
-    pen.text((120, 967), "a11ce.com/BWProxy", font=credFont, fill="black")
+    pen.text((70, 967), f"{brush}a11ce.com/BWProxy", font=credFont, fill="black")
 
-    return (card.name, cardImg)
+    return (cardName, cardImg)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description='Generate printable MTG proxies')
-    parser.add_argument("decklistPath",
-                        metavar="decklist_path",
-                        help="location of decklist file")
-    parser.add_argument("setSymbolPath",
-                        nargs="?",
-                        metavar="set_symbol_path",
-                        type=str,
-                        help="location of set symbol file (optional)")
-    parser.add_argument("--color",
-                        action="store_true",
-                        help="print card frames and mana symbols in color")
+    parser = argparse.ArgumentParser(description="Generate printable MTG proxies")
+    parser.add_argument(
+        "decklistPath",
+        metavar="decklist_path",
+        type=str,
+        help="location of decklist file",
+    )
+    parser.add_argument(
+        "setSymbolPath",
+        nargs="?",
+        metavar="set_symbol_path",
+        type=str,
+        help="location of set symbol file (optional)",
+    )
+    parser.add_argument(
+        "--color",
+        action="store_true",
+        help="print card frames and mana symbols in color",
+    )
 
     args = parser.parse_args()
 
-    deckName = args.decklistPath.split(".")[0]
+    decklistPath: str = args.decklistPath
+
+    deckName = decklistPath.split(".")[0]
     if args.setSymbolPath:
-        setSymbol = Image.open(args.setSymbolPath).convert("RGBA").resize(
-            (60, 60))
+        setSymbol = Image.open(args.setSymbolPath).convert("RGBA").resize((60, 60))
     else:
         setSymbol = None
 
-    allCards, flavorNames = loadCards(args.decklistPath)
+    allCards, flavorNames = loadCards(decklistPath)
     images = [
-        makeImage(card,
-                  setSymbol,
-                  flavorNames=flavorNames,
-                  useColor=args.color) for card in tqdm(allCards)
+        makeImage(card, setSymbol, flavorNames=flavorNames, useColor=args.color)
+        for card in tqdm(allCards)
     ]
 
     drawUtil.savePages(images, deckName)
