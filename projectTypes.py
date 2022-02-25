@@ -30,6 +30,7 @@ class Card:
                 self.data["layout"] = "aftermath"
             if secondHalfText[-1].split(" ")[0] == "Fuse":
                 self.data["layout"] = "fuse"
+                self.data["fuse_text"] = secondHalfText[-1]
 
     def _checkForKey(self, attr: str) -> Any:
         if attr in self.data:
@@ -77,15 +78,26 @@ class Card:
         return self._checkForKey("layout")
 
     @property
+    def fuse_text(self) -> str:
+        return self._checkForKey("fuse_text")
+
+    @property
     def card_faces(self) -> list[Card]:
         faces = self._checkForKey("card_faces")
         layout = self.layout
+        faces[0]["layout"] = layout
+        faces[1]["layout"] = layout
         if layout in C.DFC_LAYOUTS:
             layoutSymbol: str = "TDFC" if layout == "transform" else "MDFC"
-            faces[0]["layout"] = layout
-            faces[1]["layout"] = layout
             faces[0]["face"] = f"{{{layoutSymbol}_FRONT}}"
             faces[1]["face"] = f"{{{layoutSymbol}_BACK}}"
+        elif layout == "fuse":
+            faces[0]["oracle_text"] = faces[0]["oracle_text"].replace(
+                "\n" + self.fuse_text, ""
+            )
+            faces[1]["oracle_text"] = faces[1]["oracle_text"].replace(
+                "\n" + self.fuse_text, ""
+            )
         return [Card(face) for face in faces]
 
     @property
@@ -128,3 +140,6 @@ class Card:
 
 Deck = list[Card]
 Flavor = dict[str, str]
+
+XY = tuple[int, int]
+Box = tuple[XY, XY]
