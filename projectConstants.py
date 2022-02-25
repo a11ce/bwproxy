@@ -33,6 +33,9 @@ class Map(dict[str, T], Generic[T]):
         del self.__dict__[key]
 
 
+XY = tuple[int, int]
+Box = tuple[XY, XY]
+
 CACHE_LOC = "cardcache/cardcache.p"
 
 MTG_COLORS = Literal["W", "U", "B", "R", "G"]
@@ -82,7 +85,7 @@ FONT_CODE_POINT["{PAINTBRUSH}"] = chr(0x23F)  # Paintbrush Symbol
 
 DFC_LAYOUTS = ["transform", "modal_dfc"]
 # fuse and aftermath aren't "real" layouts, but I introduce them in the Card wrapper
-SPLIT_LAYOUTS = ["flip", "split", "fuse", "aftermath", "adventure"]
+# SPLIT_LAYOUTS = ["flip", "split", "fuse", "aftermath", "adventure"]
 
 TODO = """
 Split / Fuse / Flip / Adventure frames (Maybe also Class, Sagas and Leveler?) ❌
@@ -117,52 +120,227 @@ PAGE_FORMAT: list[PageFormat] = ["a4paper", "letter"]
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 DPI = 300
-A4_PAPER = (int(8.25 * DPI), int(11.25 * DPI))
-LETTER_PAPER = (int(8.5 * DPI), int(11 * DPI))
-MTG_CARD_SIZE = (int(2.5 * DPI), int(3.5 * DPI))
-MTG_SMALL_CARD_SIZE = (int(MTG_CARD_SIZE[0] * 0.8), int(MTG_CARD_SIZE[1] * 0.8))
+A4_PAPER: XY = (int(8.25 * DPI), int(11.25 * DPI))
+LETTER_PAPER: XY = (int(8.5 * DPI), int(11 * DPI))
+CARD_H = int(2.5 * DPI)
+CARD_V = int(3.5 * DPI)
+CARD_SIZE: XY = (CARD_H, CARD_V)
+CARD_SIZE_H: XY = (CARD_V, CARD_H)
+SMALL_CARD_SIZE: XY = (int(CARD_H * 0.8), int(CARD_V * 0.8))
 CARD_DISTANCE = 20
-BORDER_DISTANCE = 15
+BORDER = 15
+
+TITLE_FONT_SIZE = 70
+TYPE_FONT_SIZE = 50
+TEXT_FONT_SIZE = 40
+OTHER_FONT_SIZE = 25
+SYMBOL_SIZE = 40
+
+PTL_BOX_DIM: XY = (125, 70)
+PTL_BOX_MARGIN: XY = (25, 5)
 
 STD_LAYOUT = Map[Map[int]](
     {
         "BORDER": Map[int](
             {
                 "TITLE": 0,
-                "ILLUSTRATION": 90,
                 "TYPE_LINE": 460,
-                "RULES_BOX": 540,
-                "OTHER": 990,
             }
-        )
+        ),
+        "SIZE": Map[int](
+            {
+                "TITLE": 90,
+                "TYPE_LINE": 50,
+                "OTHER": 40
+            }
+        ),
+        "FONT_MIDDLE": Map[int](),
     }
 )
-STD_LAYOUT.SIZE = Map[int](
+STD_LAYOUT.BORDER.ILLUSTRATION = STD_LAYOUT.BORDER.TITLE + STD_LAYOUT.SIZE.TITLE
+STD_LAYOUT.BORDER.RULES_BOX = STD_LAYOUT.BORDER.TYPE_LINE + STD_LAYOUT.SIZE.TYPE_LINE
+STD_LAYOUT.BORDER.OTHER = CARD_V - STD_LAYOUT.SIZE.OTHER
+STD_LAYOUT.SIZE.RULES_BOX = STD_LAYOUT.BORDER.OTHER - STD_LAYOUT.BORDER.RULES_BOX
+STD_LAYOUT.FONT_MIDDLE.TITLE = (
+    STD_LAYOUT.BORDER.TITLE + STD_LAYOUT.SIZE.TITLE // 2 - BORDER // 2
+)
+STD_LAYOUT.FONT_MIDDLE.TYPE_LINE = (
+    STD_LAYOUT.BORDER.TYPE_LINE + STD_LAYOUT.SIZE.TYPE_LINE // 2 - BORDER // 2
+)
+
+STD_SYMBOL_POSITION: XY = (
+    CARD_H - BORDER - SYMBOL_SIZE,
+    STD_LAYOUT.BORDER.TYPE_LINE + (STD_LAYOUT.SIZE.TYPE_LINE - SYMBOL_SIZE) // 2,
+)
+STD_PTL_BOX: Box = (
+    (CARD_H - PTL_BOX_DIM[0] - PTL_BOX_MARGIN[0], CARD_V - PTL_BOX_DIM[1] - PTL_BOX_MARGIN[1]),
+    (CARD_H - PTL_BOX_MARGIN[0], CARD_V - PTL_BOX_MARGIN[1])
+)
+
+
+def ptlTextPosition(box: Box) -> XY:
+    return ((box[0][0] + box[1][0]) // 2, (box[0][1] + box[1][1]) // 2)
+
+
+SPLIT_LAYOUT = Map[Map[int]](
     {
-        "TITLE": STD_LAYOUT.BORDER.ILLUSTRATION - STD_LAYOUT.BORDER.TITLE,
-        "ILLUSTRATION": STD_LAYOUT.BORDER.TYPE_LINE - STD_LAYOUT.BORDER.ILLUSTRATION,
-        "TYPE_LINE": STD_LAYOUT.BORDER.RULES_BOX - STD_LAYOUT.BORDER.TYPE_LINE,
-        "RULES_BOX": STD_LAYOUT.BORDER.OTHER - STD_LAYOUT.BORDER.RULES_BOX,
-        "OTHER": MTG_CARD_SIZE[1] - STD_LAYOUT.BORDER.OTHER,
-        "SYMBOL": 60,
+        "BORDER": Map[int](
+            {
+                "TITLE": 0,
+                "TYPE_LINE": 300,
+            }
+        ),
+        "SIZE": Map[int](
+            {
+                "TITLE": STD_LAYOUT.SIZE.TITLE,
+                "TYPE_LINE": STD_LAYOUT.SIZE.TYPE_LINE,
+                "FUSE": 50,
+                "OTHER": STD_LAYOUT.SIZE.OTHER,
+            }
+        ),
+        "FONT_MIDDLE": Map[int]()
     }
 )
-STD_LAYOUT["FONT_MIDDLE"] = Map[int](
+SPLIT_LAYOUT.BORDER.ILLUSTRATION = SPLIT_LAYOUT.BORDER.TITLE + SPLIT_LAYOUT.SIZE.TITLE
+SPLIT_LAYOUT.BORDER.RULES_BOX = SPLIT_LAYOUT.BORDER.TYPE_LINE + SPLIT_LAYOUT.SIZE.TYPE_LINE
+SPLIT_LAYOUT.BORDER.OTHER = CARD_H - SPLIT_LAYOUT.SIZE.OTHER
+SPLIT_LAYOUT.BORDER.FUSE = SPLIT_LAYOUT.BORDER.OTHER - SPLIT_LAYOUT.SIZE.FUSE
+SPLIT_LAYOUT.SIZE.RULES_BOX = SPLIT_LAYOUT.BORDER.OTHER - SPLIT_LAYOUT.BORDER.RULES_BOX
+SPLIT_LAYOUT.SIZE.RULES_BOX_FUSE = SPLIT_LAYOUT.BORDER.FUSE - SPLIT_LAYOUT.BORDER.RULES_BOX
+SPLIT_LAYOUT.FONT_MIDDLE.TITLE = (
+    SPLIT_LAYOUT.BORDER.TITLE + SPLIT_LAYOUT.SIZE.TITLE // 2 - BORDER // 2
+)
+SPLIT_LAYOUT.FONT_MIDDLE.TYPE_LINE = (
+    SPLIT_LAYOUT.BORDER.TYPE_LINE + SPLIT_LAYOUT.SIZE.TYPE_LINE // 2 - BORDER // 2
+)
+SPLIT_LAYOUT.FONT_MIDDLE.FUSE = SPLIT_LAYOUT.BORDER.FUSE + SPLIT_LAYOUT.SIZE.FUSE // 2
+
+SPLIT_SYMBOL_POSITION: tuple[XY, XY] = tuple(
+    (
+        s - BORDER - SYMBOL_SIZE,
+        SPLIT_LAYOUT.BORDER.TYPE_LINE
+        + (SPLIT_LAYOUT.SIZE.TYPE_LINE - SYMBOL_SIZE) // 2,
+    )
+    for s in [CARD_V // 2, CARD_V]
+)
+
+ADVENTURE_LAYOUT = Map[Map[int]](
     {
-        "TITLE": STD_LAYOUT.BORDER.TITLE
-        + STD_LAYOUT.SIZE.TITLE // 2
-        - BORDER_DISTANCE // 2,
-        "TYPE_LINE": STD_LAYOUT.BORDER.TYPE_LINE
-        + STD_LAYOUT.SIZE.TYPE_LINE // 2
-        - BORDER_DISTANCE // 2,
+        "BORDER": Map[int](
+            {
+                "TITLE": STD_LAYOUT.BORDER.RULES_BOX,
+                "TYPE_LINE": STD_LAYOUT.BORDER.RULES_BOX + STD_LAYOUT.SIZE.TITLE,
+                "RULES_BOX": (
+                    STD_LAYOUT.BORDER.RULES_BOX
+                    + STD_LAYOUT.SIZE.TITLE
+                    + STD_LAYOUT.SIZE.TYPE_LINE
+                ),
+            }
+        ),
+        "SIZE": Map[int](
+            {
+                "TITLE": STD_LAYOUT.SIZE.TITLE,
+                "TYPE_LINE": STD_LAYOUT.SIZE.TYPE_LINE,
+                "RULES_BOX": STD_LAYOUT.SIZE.RULES_BOX
+                - STD_LAYOUT.SIZE.TITLE
+                - STD_LAYOUT.SIZE.TYPE_LINE,
+            }
+        ),
     }
 )
-STD_SYMBOL_POSITION = (670, 470)
-STD_PT_BOX = ((600, 975), (725, MTG_CARD_SIZE[1] - 5))
-STD_PT_TEXT_POSITION = (
-    (STD_PT_BOX[1][0] + STD_PT_BOX[0][0]) // 2,
-    (STD_PT_BOX[1][1] + STD_PT_BOX[0][1]) // 2,
+ADVENTURE_LAYOUT.FONT_MIDDLE = Map[int](
+    {
+        "TITLE": ADVENTURE_LAYOUT.BORDER.TITLE
+        + ADVENTURE_LAYOUT.SIZE.TITLE // 2
+        - BORDER // 2,
+        "TYPE_LINE": ADVENTURE_LAYOUT.BORDER.TYPE_LINE
+        + ADVENTURE_LAYOUT.SIZE.TYPE_LINE // 2
+        - BORDER // 2,
+    }
 )
-TITLE_FONT_SIZE = 70
-TEXT_FONT_SIZE = 40
-OTHER_FONT_SIZE = 25
+
+AFTERMATH_LAYOUT = Map[Map[int]](
+    {
+        "BORDER": Map[int](
+            {
+                "TITLE": 0,
+                "TYPE_LINE": 260,
+            }
+        ),
+        "SIZE": Map[int](
+            {
+                "TITLE": STD_LAYOUT.SIZE.TITLE,
+                "TYPE_LINE": STD_LAYOUT.SIZE.TYPE_LINE,
+                "OTHER": STD_LAYOUT.SIZE.OTHER,
+            }
+        ),
+        "FONT_MIDDLE": Map[int](),
+    }
+)
+AFTERMATH_LAYOUT.BORDER.ILLUSTRATION = (
+    AFTERMATH_LAYOUT.BORDER.TITLE + AFTERMATH_LAYOUT.SIZE.TITLE
+)
+AFTERMATH_LAYOUT.BORDER.RULES_BOX = (
+    AFTERMATH_LAYOUT.BORDER.TYPE_LINE + AFTERMATH_LAYOUT.SIZE.TYPE_LINE
+)
+AFTERMATH_LAYOUT.BORDER.OTHER = CARD_V // 2 - AFTERMATH_LAYOUT.SIZE.OTHER
+AFTERMATH_LAYOUT.SIZE.RULES_BOX = (
+    AFTERMATH_LAYOUT.BORDER.OTHER - AFTERMATH_LAYOUT.BORDER.RULES_BOX
+)
+AFTERMATH_LAYOUT.FONT_MIDDLE.TYPE_LINE = (
+    AFTERMATH_LAYOUT.BORDER.TYPE_LINE + AFTERMATH_LAYOUT.SIZE.TYPE_LINE // 2 - BORDER // 2
+)
+AFTERMATH_SYMBOL_POSITION: XY = (
+    CARD_H - BORDER - SYMBOL_SIZE,
+    AFTERMATH_LAYOUT.BORDER.TYPE_LINE
+    + (AFTERMATH_LAYOUT.SIZE.TYPE_LINE - SYMBOL_SIZE) // 2
+)
+
+FLIP_LAYOUT = Map[Map[int]](
+    {
+        "BORDER": Map[int](
+            {
+                "TITLE": 0,
+            }
+        ),
+        "SIZE": Map[int](
+            {
+                "TITLE": STD_LAYOUT.SIZE.TITLE,
+                "TYPE_LINE": STD_LAYOUT.SIZE.TYPE_LINE,
+                "RULES_BOX": 200,
+                "OTHER": STD_LAYOUT.SIZE.OTHER,
+            }
+        ),
+        "FONT_MIDDLE": Map[int](),
+    }
+)
+FLIP_LAYOUT.BORDER.TYPE_LINE = (
+    FLIP_LAYOUT.BORDER.TITLE + FLIP_LAYOUT.SIZE.TITLE
+)
+FLIP_LAYOUT.BORDER.RULES_BOX = (
+    FLIP_LAYOUT.BORDER.TYPE_LINE + FLIP_LAYOUT.SIZE.TYPE_LINE
+)
+FLIP_LAYOUT.BORDER.OTHER = (
+    FLIP_LAYOUT.BORDER.RULES_BOX + FLIP_LAYOUT.SIZE.RULES_BOX
+)
+FLIP_LAYOUT.BORDER.ILLUSTRATION = (
+    FLIP_LAYOUT.BORDER.OTHER + FLIP_LAYOUT.SIZE.OTHER
+)
+FLIP_LAYOUT.FONT_MIDDLE.TYPE_LINE = (
+    FLIP_LAYOUT.BORDER.TYPE_LINE + FLIP_LAYOUT.SIZE.TYPE_LINE // 2 - BORDER // 2
+)
+FLIP_SYMBOL_POSITION: XY = (
+    CARD_H - BORDER - SYMBOL_SIZE,
+    FLIP_LAYOUT.BORDER.TYPE_LINE
+    + (FLIP_LAYOUT.SIZE.TYPE_LINE - SYMBOL_SIZE) // 2
+)
+FLIP_PTL_BOX: Box = (
+    (
+        CARD_H - PTL_BOX_DIM[0] - PTL_BOX_MARGIN[0],
+        FLIP_LAYOUT.BORDER.ILLUSTRATION - PTL_BOX_DIM[1] - PTL_BOX_MARGIN[1]
+    ),
+    (
+        CARD_H - PTL_BOX_MARGIN[0],
+        FLIP_LAYOUT.BORDER.ILLUSTRATION - PTL_BOX_MARGIN[1]
+    )
+)
