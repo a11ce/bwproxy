@@ -115,18 +115,20 @@ Move to Scryfall API ✅
 
 PageFormat = Literal["a4paper", "letter"]
 
+A4_FORMAT: PageFormat = "a4paper"
+LETTER_FORMAT: PageFormat = "letter"
 PAGE_FORMAT: list[PageFormat] = ["a4paper", "letter"]
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 DPI = 300
-A4_PAPER: XY = (int(8.25 * DPI), int(11.25 * DPI))
+A4_PAPER: XY = (int(8.25 * DPI), int(11.75 * DPI))
 LETTER_PAPER: XY = (int(8.5 * DPI), int(11 * DPI))
 CARD_H = int(2.5 * DPI)
 CARD_V = int(3.5 * DPI)
 CARD_SIZE: XY = (CARD_H, CARD_V)
 CARD_SIZE_H: XY = (CARD_V, CARD_H)
-SMALL_CARD_SIZE: XY = (int(CARD_H * 0.8), int(CARD_V * 0.8))
+SMALL_CARD_SIZE: XY = (int(CARD_H * 0.75), int(CARD_V * 0.75))
 CARD_DISTANCE = 20
 BORDER = 15
 

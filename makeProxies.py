@@ -105,7 +105,7 @@ if __name__ == "__main__":
         help="print card frames and mana symbols in color",
     )
     parser.add_argument(
-        "--page",
+        "--page-format",
         default=C.PAGE_FORMAT[0],
         choices=C.PAGE_FORMAT,
         help="printing page format (optional)",
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--small",
         action="store_true",
-        help="print cards at 80%% in size, allowing to fit more in one page",
+        help="print cards at 75%% in size, allowing to fit more in one page",
     )
     parser.add_argument(
         "--no-text-symbols",
@@ -121,10 +121,14 @@ if __name__ == "__main__":
         dest="useTextSymbols",
         help="print cards with {W} instead of the corresponding symbol",
     )
+    parser.add_argument(
+        "--no-card-space",
+        action="store_true",
+        help="print cards withot space between them",
+    )
 
     args = parser.parse_args()
 
-    page: C.PageFormat = args.page
     decklistPath: str = args.decklistPath
 
     deckName = decklistPath.split(".")[0]
@@ -147,4 +151,10 @@ if __name__ == "__main__":
         for card in tqdm(allCards)
     ]
 
-    drawUtil.savePages(images, deckName)
+    drawUtil.savePages(
+        images=images,
+        deckName=deckName,
+        small=args.small,
+        pageFormat=args.page_format,
+        noCardSpace=args.no_card_space,
+    )

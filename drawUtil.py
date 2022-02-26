@@ -184,6 +184,7 @@ def makeFrameAdventure(image: Image.Image) -> Image.Image:
     )
     return image
 
+
 def makeFrameAftermath(image: Image.Image) -> Image.Image:
 
     pen = ImageDraw.Draw(image)
@@ -211,6 +212,7 @@ def makeFrameAftermath(image: Image.Image) -> Image.Image:
 
     return image
 
+
 def makeFrameFlip(image: Image.Image, hasPTL: bool = False) -> Image.Image:
 
     pen = ImageDraw.Draw(image)
@@ -230,9 +232,11 @@ def makeFrameFlip(image: Image.Image, hasPTL: bool = False) -> Image.Image:
     )
     # Illustration upper border
     pen.rectangle(
-        ((0, 0), (C.CARD_H, FLIP_BORDER.ILLUSTRATION)), outline=DEF_BORDER_COLOR, width=5
+        ((0, 0), (C.CARD_H, FLIP_BORDER.ILLUSTRATION)),
+        outline=DEF_BORDER_COLOR,
+        width=5,
     )
-    
+
     if hasPTL:
         pen.rectangle(C.FLIP_PTL_BOX, outline=DEF_BORDER_COLOR, fill="white", width=5)
 
@@ -426,7 +430,9 @@ def drawText(
             image = drawPTL(card=face, image=image, type=faceType)
             image = drawOther(card=face, image=image, type=faceType)
     else:
-        image = drawTitleLine(card=card, image=image, flavorNames=flavorNames, type="standard")
+        image = drawTitleLine(
+            card=card, image=image, flavorNames=flavorNames, type="standard"
+        )
         image = drawTypeLine(card=card, image=image, type="standard")
         image = drawTextBox(
             card=card, image=image, type="standard", useTextSymbols=useTextSymbols
@@ -677,7 +683,7 @@ def drawFuseText(card: Card, image: Image.Image) -> Image.Image:
         fill="black",
         anchor="lm",
     )
-    
+
     image = image.transpose(Image.ROTATE_270)
 
     return image
@@ -763,7 +769,6 @@ def drawOther(card: Card, image: Image.Image, type: str = "") -> Image.Image:
         fill="black",
         anchor="lm",
     )
-    
 
     if type in ["splitA", "splitB", "aftermathB"]:
         image = image.transpose(Image.ROTATE_270)
@@ -823,27 +828,68 @@ def drawCard(
 # Paging
 
 
-def batchSpacing(n: int, batchSize: tuple[int, int], pageSize: tuple[int, int]):
-    maxH = pageSize[0] - (C.CARD_DISTANCE + (C.CARD_H + C.CARD_DISTANCE) * batchSize[0])
-    maxV = pageSize[1] - (C.CARD_DISTANCE + (C.CARD_V + C.CARD_DISTANCE) * batchSize[1])
+def batchSpacing(
+    n: int,
+    batchSize: tuple[int, int],
+    pageSize: XY,
+    cardSize: XY,
+    noCardSpace: bool = False,
+):
+    CARD_H = cardSize[0]
+    CARD_V = cardSize[1]
+    CARD_DISTANCE = 1 if noCardSpace else C.CARD_DISTANCE
+    maxH = pageSize[0] - (CARD_DISTANCE + (CARD_H + CARD_DISTANCE) * batchSize[0])
+    maxV = pageSize[1] - (CARD_DISTANCE + (CARD_V + CARD_DISTANCE) * batchSize[1])
     return (
-        maxH // 2 + C.CARD_DISTANCE + (C.CARD_H + C.CARD_DISTANCE) * (n % batchSize[0]),
-        maxV // 2
-        + C.CARD_DISTANCE
-        + (C.CARD_V + C.CARD_DISTANCE) * (n // batchSize[0]),
+        maxH // 2 + CARD_DISTANCE + (CARD_H + CARD_DISTANCE) * (n % batchSize[0]),
+        maxV // 2 + CARD_DISTANCE + (CARD_V + CARD_DISTANCE) * (n // batchSize[0]),
     )
 
 
-def savePages(images: list[Image.Image], deckName: str):
+def savePages(
+    images: list[Image.Image],
+    deckName: str,
+    small: bool = False,
+    pageFormat: C.PageFormat = C.A4_FORMAT,
+    noCardSpace: bool = False,
+):
     os.makedirs(os.path.dirname(f"pages/{deckName}/"), exist_ok=True)
-    batchSize = (3, 3)
+    pageHoriz = False
+    cardSize = C.CARD_SIZE
+    if not small:
+        batchSize = (3, 3)
+    else:
+        batchSize = (4, 4)
+
     batchNum = batchSize[0] * batchSize[1]
 
-    for i in tqdm(range(0, len(images), batchNum)):
+    if pageFormat == C.A4_FORMAT:
+        pageSize = C.A4_PAPER
+    elif pageFormat == C.LETTER_FORMAT:
         pageSize = C.LETTER_PAPER
+    else:
+        raise Exception(f"Unknown parameter: {pageFormat}")
+
+    if small:
+        cardSize = C.SMALL_CARD_SIZE
+        images = [image.resize(cardSize) for image in images]
+
+    if pageHoriz:
+        pageSize = (pageSize[1], pageSize[0])
+
+    for i in tqdm(range(0, len(images), batchNum)):
         batch = images[i : i + batchNum]
         page = Image.new("RGB", size=pageSize, color="white")
         for n in range(len(batch)):
-            page.paste(batch[n], batchSpacing(n, batchSize, pageSize))
+            page.paste(
+                batch[n],
+                batchSpacing(
+                    n,
+                    batchSize=batchSize,
+                    pageSize=pageSize,
+                    cardSize=cardSize,
+                    noCardSpace=noCardSpace,
+                ),
+            )
 
         page.save(f"pages/{deckName}/{i // batchNum}.png", "PNG")
