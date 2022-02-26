@@ -27,12 +27,17 @@ def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
         flavorNames: Flavor = {}
 
         doubleSpacesRegex = re.compile(r" {2,}")
+        removeCommentsRegex = re.compile(r"#.*$")
         cardCountRegex = re.compile(r"^([0-9]+)x?")
         flavorNameRegex = re.compile(r"\[(.*?)\]")
         cardNameRegex = re.compile(r"^(?:\d+x? )?(.*?)(?: \[.*?\])?$")
 
         for line in tqdm(f):
+            line = removeCommentsRegex.sub("", line)
             line = doubleSpacesRegex.sub(" ", line.strip())
+
+            if line == "":
+                continue
 
             cardCountMatch = cardCountRegex.search(line)
             cardCount = int(cardCountMatch.groups()[0]) if cardCountMatch else 1
