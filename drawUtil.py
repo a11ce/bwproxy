@@ -256,9 +256,9 @@ def makeFrame(card: Card, image: Image.Image) -> Image.Image:
         image = makeFrameStandard(image=image, hasPTL=card.card_faces[0].hasPTL())
         image = makeFrameAdventure(image=image)
     elif card.layout == "flip":
-        image = makeFrameFlip(image=image, hasPTL=card.hasPTL())
+        image = makeFrameFlip(image=image, hasPTL=card.card_faces[0].hasPTL())
         image = image.transpose(Image.ROTATE_180)
-        image = makeFrameFlip(image=image, hasPTL=card.hasPTL())
+        image = makeFrameFlip(image=image, hasPTL=card.card_faces[1].hasPTL())
         image = image.transpose(Image.ROTATE_180)
     else:
         image = makeFrameStandard(image=image, hasPTL=card.hasPTL())
@@ -426,7 +426,7 @@ def drawText(
             image = drawPTL(card=face, image=image, type=faceType)
             image = drawOther(card=face, image=image, type=faceType)
     else:
-        image = drawTitleLine(card=card, image=image, type="standard")
+        image = drawTitleLine(card=card, image=image, flavorNames=flavorNames, type="standard")
         image = drawTypeLine(card=card, image=image, type="standard")
         image = drawTextBox(
             card=card, image=image, type="standard", useTextSymbols=useTextSymbols
@@ -580,7 +580,7 @@ def drawTypeLine(card: Card, image: Image.Image, type: str = "") -> Image.Image:
 def drawTextBox(
     card: Card, image: Image.Image, type: str = "", useTextSymbols: bool = True
 ) -> Image.Image:
-    cardText = card.oracle_text
+    cardText = f"{card.color_indicator_reminder_text}{card.oracle_text}"
     if useTextSymbols:
         cardText = printSymbols(cardText)
 

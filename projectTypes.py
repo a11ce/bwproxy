@@ -137,6 +137,17 @@ class Card:
     def hasPTL(self) -> bool:
         return self.hasPT() or self.hasL()
 
+    @property
+    def flavor_name(self) -> str:
+        return self._checkForKey("flavor_name")
+
+    def has_flavor_name(self) -> bool:
+        try:
+            self.flavor_name
+            return True
+        except:
+            return False
+
 
 Deck = list[Card]
 Flavor = dict[str, str]
