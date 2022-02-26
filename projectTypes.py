@@ -1,9 +1,19 @@
 from __future__ import annotations
 from typing import Any
 from scrython import Named
+import re
 
 import projectConstants as C
 
+nonColorRe = re.compile(r"[^WUBRG]")
+
+def extractColor(manaCost: str) -> list[C.MTG_COLORS]:
+    colors = nonColorRe.sub("", manaCost)
+    ret: list[C.MTG_COLORS] = []
+    for c in colors:
+        if c in C.MANA_SYMBOLS and c not in ret:
+            ret.append(c)
+    return ret
 
 class Card:
     """
@@ -35,7 +45,7 @@ class Card:
     def _checkForKey(self, attr: str) -> Any:
         if attr in self.data:
             return self.data[attr]
-        raise KeyError(f"This card has no key {attr}")
+        raise KeyError(f"This card has no key {attr}: {self.name}")
 
     @property
     def name(self) -> str:
@@ -85,12 +95,14 @@ class Card:
     def card_faces(self) -> list[Card]:
         faces = self._checkForKey("card_faces")
         layout = self.layout
-        faces[0]["layout"] = layout
-        faces[1]["layout"] = layout
+        faces[0]["face_type"] = layout
+        faces[1]["face_type"] = layout
         if layout in C.DFC_LAYOUTS:
             layoutSymbol: str = "TDFC" if layout == "transform" else "MDFC"
-            faces[0]["face"] = f"{{{layoutSymbol}_FRONT}}"
-            faces[1]["face"] = f"{{{layoutSymbol}_BACK}}"
+            faces[0]["face_symbol"] = f"{{{layoutSymbol}_FRONT}}"
+            faces[1]["face_symbol"] = f"{{{layoutSymbol}_BACK}}"
+            faces[0]["layout"] = layout
+            faces[1]["layout"] = layout
         elif layout == "fuse":
             faces[0]["oracle_text"] = faces[0]["oracle_text"].replace(
                 "\n" + self.fuse_text, ""
@@ -98,11 +110,22 @@ class Card:
             faces[1]["oracle_text"] = faces[1]["oracle_text"].replace(
                 "\n" + self.fuse_text, ""
             )
+        if layout in ["split", "fuse", "aftermath"]:
+            faces[0]["colors"] = extractColor(faces[0]["mana_cost"])
+            faces[1]["colors"] = extractColor(faces[1]["mana_cost"])
+
         return [Card(face) for face in faces]
 
     @property
-    def face(self) -> str:
-        return self._checkForKey("face")
+    def face_symbol(self) -> str:
+        return self._checkForKey("face_symbol")
+
+    @property
+    def face_type(self) -> str:
+        try:
+            return self._checkForKey("face_type")
+        except:
+            return "standard"
 
     @property
     def color_indicator_reminder_text(self) -> str:

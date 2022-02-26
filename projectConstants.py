@@ -53,7 +53,7 @@ FRAME_COLORS = {
 
 BASIC_LANDS = ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]
 
-MANA_SYMBOLS = ["W", "U", "B", "R", "G"]
+MANA_SYMBOLS: list[MTG_COLORS] = ["W", "U", "B", "R", "G"]
 # Can be obtained programmatically, but that's more concise
 HYBRID_SYMBOLS = ["W/U", "U/B", "B/R", "R/G", "G/W", "W/B", "U/R", "B/G", "R/W", "G/U"]
 COLOR_NAMES = {"W": "white", "U": "blue", "B": "black", "R": "red", "G": "green"}

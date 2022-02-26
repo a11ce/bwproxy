@@ -276,53 +276,105 @@ def interpolateColor(color1: RgbColor, color2: RgbColor, weight: float) -> RgbCo
     return tuple(int(a + (weight * (b - a))) for a, b in zip(color1, color2))
 
 
-def multicolorBlank(colors: list[str], vertical: bool = False) -> Image.Image:
+def coloredTemplateSimple(card: Card, size: XY) -> Image.Image:
+    coloredTemplate = Image.new("RGB", size=size, color=C.WHITE)
+    colors = card.colors
+    
+    pen = ImageDraw.Draw(coloredTemplate)
+    
+    imgColors = []
+    if len(colors) == 0:
+        multicolor = False
+        imgColor = ImageColor.getrgb(C.FRAME_COLORS["C"])
+    elif len(colors) == 1:
+        multicolor = False
+        imgColor = ImageColor.getrgb(C.FRAME_COLORS[colors[0]])
+    elif len(colors) == 5:
+        multicolor = False
+        imgColor = ImageColor.getrgb(C.FRAME_COLORS["M"])
+    else:
+        multicolor = True
+        imgColor = ImageColor.getrgb(C.FRAME_COLORS["M"])
+        imgColors = [ImageColor.getrgb(C.FRAME_COLORS[c]) for c in colors]
+
+    if not multicolor:
+        for idx in range(size[0]):
+            pen.line(
+                [(idx, 0), (idx, size[1])],
+                imgColor,
+                width=1,
+            )
+        return coloredTemplate
+    
+    n = len(imgColors) - 1
+    segmentLength = size[0] // n
+    #imgColors.append(imgColors[-1]) # Necessary line in order not to crash 
+    
+    for idx in range(size[0]):
+        i = idx // segmentLength
+        pen.line(
+            [(idx, 0), (idx, size[1])],
+            interpolateColor(imgColors[i], imgColors[i + 1], (idx % segmentLength) / segmentLength),
+            width=1,
+        )
+
+    return coloredTemplate
+
+def colorHalf(card: Card, image: Image.Image, half: str) -> Image.Image:
+    if half == "top":
+        size = (C.CARD_H, C.CARD_V // 2)
+        halfImage = coloredTemplateSimple(card=card, size=size)
+        image.paste(halfImage, box=(0, 0))
+        return image
+    elif half == "left":
+        size = (C.CARD_V // 2, C.CARD_H)
+        halfImage = coloredTemplateSimple(card=card, size=size)
+        halfImage = halfImage.transpose(Image.ROTATE_270)
+        image.paste(halfImage, box=(0, 0))
+        return image
+    elif half == "right":
+        size = (C.CARD_V // 2, C.CARD_H)
+        halfImage = coloredTemplateSimple(card=card, size=size)
+        halfImage = halfImage.transpose(Image.ROTATE_270)
+        image.paste(halfImage, box=(0, C.CARD_V // 2))
+        return image
+    else:
+        raise Exception(f"Unknown parameter: {half}")
+
+
+def coloredBlank(card: Card) -> Image.Image:
     """
     Creates a template for two-colored card frames,
     with a color shift from the first color to the second
     This template is then used to set the colors in the real frame
     """
-    if vertical:
-        cardImg = Image.new("RGB", size=C.CARD_SIZE_H, color=C.WHITE)
+    coloredTemplate = Image.new("RGB", size=C.CARD_SIZE, color=C.WHITE)
+
+    if card.layout in ["split", "fuse"]:
+        faces = card.card_faces
+        coloredTemplate = colorHalf(card=faces[0], image=coloredTemplate, half="left")
+        coloredTemplate = colorHalf(card=faces[1], image=coloredTemplate, half="right")
+        return coloredTemplate
+    elif card.layout == "aftermath":
+        faces = card.card_faces
+        coloredTemplate = colorHalf(card=faces[0], image=coloredTemplate, half="top")
+        coloredTemplate = colorHalf(card=faces[1], image=coloredTemplate, half="right")
+        return coloredTemplate
+    # Flip does not have multicolored cards, so I'm ignoring it
+    # Adventure for now is monocolored or both parts are the same color
     else:
-        cardImg = Image.new("RGB", size=C.CARD_SIZE, color=C.WHITE)
-    pen = ImageDraw.Draw(cardImg)
-    imgColors = [ImageColor.getrgb(x) for x in colors]
-    if vertical:
-        for idx in range(C.CARD_V):
-            pen.line(
-                [(idx, 0), (idx, C.CARD_H)],
-                tuple(interpolateColor(imgColors[0], imgColors[1], idx / C.CARD_V)),
-                width=1,
-            )
-    else:
-        for idx in range(C.CARD_H):
-            pen.line(
-                [(idx, 0), (idx, C.CARD_V)],
-                tuple(interpolateColor(imgColors[0], imgColors[1], idx / C.CARD_H)),
-                width=1,
-            )
+        return coloredTemplateSimple(card=card, size=C.CARD_SIZE)
 
-    return cardImg
+    
 
 
-def colorBorders(card: Card, image: Image.Image):
-    return image  # TODO
-    coloredTemplate = multicolorBlank(card=card)
-    (x, y) = CARD_SIZE
-    for idx in range(x):
-        for idy in range(y):
+def colorBorders(card: Card, image: Image.Image) -> Image.Image:
+    coloredTemplate = coloredBlank(card=card)
+    for idx in range(C.CARD_H):
+        for idy in range(C.CARD_V):
             if image.getpixel((idx, idy)) == DEF_BORDER_RGB:
                 image.putpixel((idx, idy), coloredTemplate.getpixel((idx, idy)))  # type: ignore
-    return
-    if not isinstance(frameColor, list):
-        frameBlank, pen = makeFrame(frameColor=frameColor, card=card)
-    elif len(frameColor) > 2:
-        frameBlank, pen = makeFrame(frameColor=C.FRAME_COLORS["M"], card=card)
-    else:
-        frameBlank, pen = makeFrame(frameColor=DEF_BORDER, card=card)
-        vertical = card.layout in ["split", "fuse"]
-        multiBlank = multicolorBlank(frameColor, vertical=vertical)
+    return image
 
 
 # Symbol
@@ -486,8 +538,8 @@ def drawTitleLine(
         xPos -= titleFont.getsize(c)[0]
 
     displayName = flavorNames[card.name] if card.name in flavorNames else card.name
-    if card.layout in ["transform", "modal_dfc"]:
-        displayName = f"{C.FONT_CODE_POINT[card.face]} {displayName}"
+    if card.face_type in ["transform", "modal_dfc"]:
+        displayName = f"{C.FONT_CODE_POINT[card.face_symbol]} {displayName}"
 
     nameFont = fitOneLine(
         fontPath="matrixb.ttf",
@@ -505,7 +557,7 @@ def drawTitleLine(
         fill="black",
         anchor="lm",
     )
-    if card.name in flavorNames and card.layout not in [
+    if card.name in flavorNames and card.face_type not in [
         "split",
         "fuse",
         "aftermath",
@@ -596,7 +648,7 @@ def drawTextBox(
         maxWidth = C.CARD_V // 2 - 2 * C.BORDER
         maxHeight = (
             C.SPLIT_LAYOUT.SIZE.RULES_BOX_FUSE
-            if card.layout == "fuse"
+            if card.face_type == "fuse"
             else C.SPLIT_LAYOUT.SIZE.RULES_BOX - 2 * C.BORDER
         )
         image = image.transpose(Image.ROTATE_90)
@@ -606,7 +658,7 @@ def drawTextBox(
         maxWidth = C.CARD_V // 2 - 2 * C.BORDER
         maxHeight = (
             C.SPLIT_LAYOUT.SIZE.RULES_BOX_FUSE
-            if card.layout == "fuse"
+            if card.face_type == "fuse"
             else C.SPLIT_LAYOUT.SIZE.RULES_BOX
         ) - 2 * C.BORDER
         image = image.transpose(Image.ROTATE_90)
@@ -807,22 +859,6 @@ def drawCard(
     )
 
     return image
-    if not isinstance(frameColor, list):
-        frameBlank, pen = makeFrame(frameColor=frameColor, card=card)
-    elif len(frameColor) > 2:
-        frameBlank, pen = makeFrame(frameColor=C.FRAME_COLORS["M"], card=card)
-    else:
-        frameBlank, pen = makeFrame(frameColor=DEF_BORDER, card=card)
-        vertical = card.layout in ["split", "fuse"]
-        multiBlank = multicolorBlank(frameColor, vertical=vertical)
-
-        (x, y) = CARD_SIZE_H if vertical else CARD_SIZE
-        for idx in range(x):
-            for idy in range(y):
-                if frameBlank.getpixel((idx, idy)) == DEF_BORDER_RGB:
-                    frameBlank.putpixel((idx, idy), multiBlank.getpixel((idx, idy)))  # type: ignore
-
-    return frameBlank, pen
 
 
 # Paging
