@@ -46,10 +46,6 @@ def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
             else:
                 raise Exception(f"No card name found in line {line}")
 
-            if flavorNameMatch:
-                flavorName = flavorNameMatch.groups()[0]
-                flavorNames[cardName] = flavorName
-
             if cardName in C.BASIC_LANDS:
                 print(
                     f"{cardName} will not be printed. use the basic land generator (check readme) instead"
@@ -67,6 +63,13 @@ def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
                     continue
 
                 cardCache[cardName] = cardData
+
+            if cardData.has_flavor_name():
+                flavorNames[cardData.name] = cardData.flavor_name
+
+            if flavorNameMatch:
+                flavorName = flavorNameMatch.groups()[0]
+                flavorNames[cardData.name] = flavorName
 
             if cardData.layout in C.DFC_LAYOUTS:
                 facesData = cardData.card_faces
