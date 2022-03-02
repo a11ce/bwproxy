@@ -1,4 +1,4 @@
-from typing import Literal, Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, Dict, Tuple, List
 
 VERSION = "2.0"
 CREDITS = chr(0x23F) + " https://a11ce.com/bwproxy"
@@ -6,13 +6,13 @@ CREDITS = chr(0x23F) + " https://a11ce.com/bwproxy"
 T = TypeVar("T")
 
 
-class Map(dict[str, T], Generic[T]):
+class Map(Dict[str, T], Generic[T]):
     """
     Example:
     m = Map({'first_name': 'Eduardo'}, last_name='Pool', age=24, sports=['Soccer'])
     """
 
-    def __init__(self, *args: dict[str, Any], **kwargs: Any):
+    def __init__(self, *args: Dict[str, Any], **kwargs: Any):
         self.update(*args, **kwargs)
 
     def __getattr__(self, attr: str):
@@ -33,12 +33,12 @@ class Map(dict[str, T], Generic[T]):
         del self.__dict__[key]
 
 
-XY = tuple[int, int]
-Box = tuple[XY, XY]
+XY = Tuple[int, int]
+Box = Tuple[XY, XY]
 
 CACHE_LOC = "cardcache/cardcache.p"
 
-MTG_COLORS = Literal["W", "U", "B", "R", "G"]
+MTG_COLORS = str # Literal["W", "U", "B", "R", "G"]
 
 FRAME_COLORS = {
     "W": "#fcf4a3",
@@ -53,12 +53,12 @@ FRAME_COLORS = {
 
 BASIC_LANDS = ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]
 
-MANA_SYMBOLS: list[MTG_COLORS] = ["W", "U", "B", "R", "G"]
+MANA_SYMBOLS: List[MTG_COLORS] = ["W", "U", "B", "R", "G"]
 # Can be obtained programmatically, but that's more concise
 HYBRID_SYMBOLS = ["W/U", "U/B", "B/R", "R/G", "G/W", "W/B", "U/R", "B/G", "R/W", "G/U"]
 COLOR_NAMES = {"W": "white", "U": "blue", "B": "black", "R": "red", "G": "green"}
 
-FONT_CODE_POINT: dict[str, str] = {}
+FONT_CODE_POINT: Dict[str, str] = {}
 for i in range(21):
     FONT_CODE_POINT[f"{{{i}}}"] = chr(0x200 + i)  # Generic mana cost (0 to 20)
 for (i, c) in enumerate(MANA_SYMBOLS):
@@ -113,11 +113,11 @@ Move to Scryfall API ✅
 # If we resize a MtG card to 2 in x 2.8 in (x0.8)
 # We can have a 4x4 in A4 and 5x3 in letter (horizontal)
 
-PageFormat = Literal["a4paper", "letter"]
+PageFormat = str # Literal["a4paper", "letter"]
 
 A4_FORMAT: PageFormat = "a4paper"
 LETTER_FORMAT: PageFormat = "letter"
-PAGE_FORMAT: list[PageFormat] = ["a4paper", "letter"]
+PAGE_FORMAT: List[PageFormat] = ["a4paper", "letter"]
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -217,7 +217,7 @@ SPLIT_LAYOUT.FONT_MIDDLE.TYPE_LINE = (
 )
 SPLIT_LAYOUT.FONT_MIDDLE.FUSE = SPLIT_LAYOUT.BORDER.FUSE + SPLIT_LAYOUT.SIZE.FUSE // 2
 
-SPLIT_SYMBOL_POSITION: tuple[XY, XY] = tuple(
+SPLIT_SYMBOL_POSITION: Tuple[XY, XY] = tuple(
     (
         s - BORDER - SYMBOL_SIZE,
         SPLIT_LAYOUT.BORDER.TYPE_LINE
