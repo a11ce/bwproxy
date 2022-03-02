@@ -12,6 +12,7 @@
     div.column{display: inline-block; vertical-align: top; width: 50%;}
     div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
     ul.task-list{list-style: none;}
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
   </style>
   <link rel="stylesheet" href="docs.css" />
   <!--[if lt IE 9]>
@@ -39,31 +40,41 @@
 <p>Currently, the only way to use BWProxy is through the command line. If you don’t know how to do that, I’ll be releasing a website with the same functionality soon.</p>
 <p>If something doesn’t work, please <a href="https://github.com/a11ce/bwproxy/issues/new/choose">open an issue on GitHub</a> or message me on Discord <span class="citation" data-cites="a11ce#0027">@a11ce#0027</span>.</p>
 <h3 id="download">Download</h3>
-<ol type="1">
-<li>Get dependencies with <code>python3 -m pip install mtgsdk pillow tqdm</code></li>
-<li>Download with <code>git clone https://github.com/a11ce/bwproxy.git</code></li>
-</ol>
-<h3 id="make-some-cards">Make some cards!</h3>
-<ol type="1">
-<li>Save your decklist as a .txt in the format <code>1 Cardname</code> or <code>1x Cardname</code>, one card per line. Currently only singleton formats are supported.</li>
-<li>Optionally, put a grayscale/transparent png in <code>icons/</code>. You can use this in place of a set icon to indicate what cube or deck the cards are part of.</li>
-<li>Run <code>python3 makeProxies.py yourDeck.txt</code> (or <code>python3 makeProxies.py yourDeck.txt icons/yourIcon.png</code> if you want a set icon).</li>
-<li>Print each page in <code>pages/yourDeck/</code> at full size/fit to page and cut just outside the border of each card.</li>
-</ol>
-<h2 id="make-some-lands-wip">Make some lands! (WIP)</h2>
-<p>If you’re sleeving your BWProxies, you can just use real basic lands. But if you want aesthetic consistency (or to play with just paper cards), you can also generate basics.</p>
-<ol type="1">
-<li>Run <code>python3 makeBasics.py</code> in <code>basics/</code>.</li>
-<li>Within <code>basics/pages/</code>
 <ul>
-<li><code>symbolLands</code> will contain lands with a big mana symbol. These are very distinguishable even without color, and perfect for sleeving.</li>
-<li><code>blankLands</code> will contain blank full-art-frame lands. These are good for quickly testing a deck without sleeving because the large symbols are often visible through the back of the paper. You can also draw your own art!</li>
+<li>Install <a href="https://www.python.org">Python</a></li>
+<li>Get dependencies with <code>python3 -m pip install scrython pillow tqdm</code></li>
+<li>Download with <code>git clone https://github.com/a11ce/bwproxy.git</code> or via the <a href="https://github.com/a11ce/bwproxy/releases/latest">Github link</a></li>
+</ul>
+<h2 id="make-some-cards">Make some cards!</h2>
+<ul>
+<li>Save your decklist as a .txt in the <code>input</code> folder in the format <code>Cardname</code>, <code>1 Cardname</code> or <code>1x Cardname</code>, one card per line.
+<ul>
+<li>Empty lines will be ignored;</li>
+<li>You can add comments with #. Every character from the # until the end of the line will be ignored;</li>
+<li>If the card is a modal or transforming double-faced card, both faces will be printed: you don’t need to list both. Meld cards still need to be included separately;</li>
+<li>If you’re searching for a flavor name (for example <code>Godzilla, King of the Monsters</code>), the flavor name will appear on the title, and the Oracle name will appear under the title;</li>
+<li>Optionally, you can put a custom flavor name in square brackets after a card name;</li>
+<li>If you want aesthetic consistency (or to play with just paper cards), you can also generate basic land cards. They will be printed with a big mana symbol, but there is an option to remove the symbol and leave them as blank full-art lands, useful for testing a deck without sleeving. It’s also the best option for customisation!</li>
 </ul></li>
-<li>Print however many you need at full size/fit to page and cut just outside the border or each card.</li>
-</ol>
+<li>Optionally, put a grayscale/transparent png in <code>icons/</code>. You can use this in place of a set icon to indicate what cube or deck the cards are part of;</li>
+<li>Run <code>python3 makeProxies.py [options] input/yourDeck.txt</code>. The options are listed below:
+<ul>
+<li>Add <code>--icon-path icons/yourIcon.png</code> to add a set icon. If the argument is not passed to the program, the cards will not have a set icon;</li>
+<li>Add <code>--page-format [format]</code> to specify the page format. Possible formats are <code>a4paper</code> and <code>letter</code> (default is <code>a4paper</code>);</li>
+<li>Add <code>--color</code> to print the card borders in color. Colored mana symbols are WIP;</li>
+<li>Add <code>--no-text-symbols</code> to have the rules text use the oracle text style for mana symbols (<code>{W}</code> instead of the white mana symbol, etc);</li>
+<li>Add <code>--small</code> to print the cards at 75% scale. This lets you print more cards on a single page;</li>
+<li>Add <code>--no-card-space</code> to print the cards without blank space between them.</li>
+<li>Add <code>--full-art-lands</code> to print basic lands without the big mana symbol.</li>
+<li>Add <code>--ignore-basic-lands</code> to ignore basic lands when generating proxies.</li>
+</ul></li>
+<li>Print each page in <code>pages/yourDeck/</code> at full size and cut just outside the border of each card.</li>
+</ul>
 <hr />
 <p>Source code is available <a href="https://github.com/a11ce/bwproxy">here</a>. All contributions are welcome by pull request or issue.</p>
-<p>Minor version numbers represent changes to the appearence of generated cards. Patch version numbers represent changes to the functionality of card generation.</p>
-<p>BWProxy is licensed under GNU General Public License v3.0. See <a href="https://github.com/a11ce/bwproxy/blob/main/LICENSE">LICENSE</a> for full text. Fonts and mana symbols are excluded.</p>
+<p>Minor version numbers represent (possible) changes to the appearence of generated cards. Patch version numbers represent changes to the functionality of card generation.</p>
+<p>BWProxy is licensed under GNU General Public License v3.0. See <a href="https://github.com/a11ce/bwproxy/blob/main/LICENSE">LICENSE</a> for full text.</p>
+<p>All mana and card symbol images are copyright Wizards of the Coast (http://magicthegathering.com).</p>
+<p>Mana symbol vector images come from the <a href="http://mana.andrewgioia.com/">Mana Project</a>, licensed under MIT Licence.</p>
 </body>
 </html>

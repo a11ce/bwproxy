@@ -938,7 +938,11 @@ def savePages(
     if pageHoriz:
         pageSize = (pageSize[1], pageSize[0])
 
-    for i in tqdm(range(0, len(images), batchNum)):
+    for i in tqdm(
+        range(0, len(images), batchNum),
+        desc="Pagination progress: ",
+        unit="page",
+    ):
         batch = images[i : i + batchNum]
         page = Image.new("RGB", size=pageSize, color="white")
         for n in range(len(batch)):
