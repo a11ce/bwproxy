@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Dict
 from scrython import Named, ScryfallError
 from PIL import Image
 from tqdm import tqdm
@@ -12,9 +13,9 @@ import bwproxy.projectConstants as C
 from bwproxy.projectTypes import Card, Deck, Flavor
 
 
-def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
+def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavor]:
 
-    cardCache: dict[str, Card]
+    cardCache: Dict[str, Card]
 
     if os.path.exists(C.CACHE_LOC):
         with open(C.CACHE_LOC, "rb") as p:
@@ -51,9 +52,9 @@ def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
             else:
                 raise Exception(f"No card name found in line {line}")
 
-            if cardName in C.BASIC_LANDS:
+            if ignoreBasicLands and cardName in C.BASIC_LANDS:
                 print(
-                    f"{cardName} will not be printed. use the basic land generator (check readme) instead"
+                    f"You have requested to ignore basic lands. {cardName} will not be printed."
                 )
                 continue
 
@@ -100,18 +101,19 @@ if __name__ == "__main__":
         help="location of decklist file",
     )
     parser.add_argument(
-        "--set-icon-path",
-        # metavar="set_symbol_path",
+        "-i", "--set-icon-path",
+        dest="setIconPath",
         help="location of set icon file",
     )
     parser.add_argument(
-        "--page-format",
+        "-p", "--page-format",
         default=C.PAGE_FORMAT[0],
         choices=C.PAGE_FORMAT,
+        dest="pageFormat",
         help="printing page format",
     )
     parser.add_argument(
-        "--color",
+        "-c", "--color",
         action="store_true",
         help="print card frames and mana symbols in color",
     )
@@ -122,29 +124,42 @@ if __name__ == "__main__":
         help="print cards with e.g. {W} instead of the corresponding symbol",
     )
     parser.add_argument(
-        "--small",
+        "-s", "--small",
         action="store_true",
         help="print cards at 75%% in size, allowing to fit more in one page",
     )
     parser.add_argument(
         "--no-card-space",
         action="store_true",
+        dest="noCardSpace",
         help="print cards without space between them",
+    )
+    parser.add_argument(
+        "--full-art-lands",
+        action="store_true",
+        dest="fullArtLands",
+        help="print full art basic lands instead of big symbol basic lands",
+    )
+    parser.add_argument(
+        "--ignore-basic-lands", "--ignore-basics",
+        action="store_true",
+        dest="ignoreBasicLands",
+        help="skip basic lands when generating images",
     )
 
     args = parser.parse_args()
 
     decklistPath: str = args.decklistPath
-
-    deckName = decklistPath.split(".")[0]
-    if args.set_icon_path:
+    
+    deckName = decklistPath.split("/")[-1].split("\\")[-1].split(".")[0]
+    if args.setIconPath:
         setIcon = drawUtil.resizeSetIcon(
-            Image.open(args.set_icon_path).convert("RGBA")
+            Image.open(args.setIconPath).convert("RGBA")
         )
     else:
         setIcon = None
 
-    allCards, flavorNames = loadCards(decklistPath)
+    allCards, flavorNames = loadCards(decklistPath, ignoreBasicLands=args.ignoreBasicLands)
     images = [
         drawUtil.drawCard(
             card=card,
@@ -152,14 +167,14 @@ if __name__ == "__main__":
             flavorNames=flavorNames,
             isColored=args.color,
             useTextSymbols=args.useTextSymbols,
+            fullArtLands=args.fullArtLands,
         )
         for card in tqdm(allCards)
     ]
-
     drawUtil.savePages(
         images=images,
         deckName=deckName,
         small=args.small,
-        pageFormat=args.page_format,
-        noCardSpace=args.no_card_space,
+        pageFormat=args.pageFormat,
+        noCardSpace=args.noCardSpace,
     )
