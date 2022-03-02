@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any
+from typing import Any, List, Dict, Tuple
 from scrython import Named
 import re
 
@@ -172,8 +172,8 @@ class Card:
             return False
 
 
-Deck = list[Card]
-Flavor = dict[str, str]
+Deck = List[Card]
+Flavor = Dict[str, str]
 
-XY = tuple[int, int]
-Box = tuple[XY, XY]
+XY = Tuple[int, int]
+Box = Tuple[XY, XY]

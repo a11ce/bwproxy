@@ -1,4 +1,4 @@
-from typing import overload
+from typing import overload, Tuple, List, Match, Union, Optional
 from PIL import Image, ImageDraw, ImageFont, ImageColor
 from tqdm import tqdm
 import os
@@ -7,7 +7,7 @@ import re
 import projectConstants as C
 from projectTypes import Card, Deck, Flavor, XY, Box  # type: ignore
 
-RgbColor = tuple[int, int, int] | tuple[int, int, int, int]
+RgbColor = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 
 DEF_BORDER_COLOR = C.FRAME_COLORS["default"]
 DEF_BORDER_RGB = ImageColor.getrgb(DEF_BORDER_COLOR)
@@ -17,7 +17,7 @@ DEF_BORDER_RGB = ImageColor.getrgb(DEF_BORDER_COLOR)
 specialTextRegex = re.compile(r"\{.+?\}")
 
 
-def replFunction(m: re.Match[str]):
+def replFunction(m: Match[str]):
     t = m.group()
     if t in C.FONT_CODE_POINT:
         return C.FONT_CODE_POINT[t]
@@ -34,7 +34,7 @@ def printSymbols(text: None) -> None:
     ...
 
 
-def printSymbols(text: str | None) -> str | None:
+def printSymbols(text: Optional[str]) -> Optional[str]:
     if text is None:
         return None
     # First − is \u2212, which is not in the font but is used in Planeswalker abilities
@@ -57,7 +57,7 @@ def fitOneLine(fontPath: str, text: str, maxWidth: int, fontSize: int):
 
 def fitMultiLine(
     fontPath: str, cardText: str, maxWidth: int, maxHeight: int, fontSize: int
-) -> tuple[str, ImageFont.FreeTypeFont]:
+) -> Tuple[str, ImageFont.FreeTypeFont]:
     """
     Recursive function that tries to fit multiple lines of text in the specified box.
     It starts with the specified font size, chops the text based on the max width,
@@ -836,7 +836,7 @@ def drawOther(card: Card, image: Image.Image, type: str = "") -> Image.Image:
 def drawCard(
     card: Card,
     isColored: bool = False,
-    symbol: Image.Image | None = None,
+    symbol: Optional[Image.Image] = None,
     flavorNames: Flavor = {},
     useTextSymbols: bool = True,
 ) -> Image.Image:
@@ -866,7 +866,7 @@ def drawCard(
 
 def batchSpacing(
     n: int,
-    batchSize: tuple[int, int],
+    batchSize: Tuple[int, int],
     pageSize: XY,
     cardSize: XY,
     noCardSpace: bool = False,
@@ -883,7 +883,7 @@ def batchSpacing(
 
 
 def savePages(
-    images: list[Image.Image],
+    images: List[Image.Image],
     deckName: str,
     small: bool = False,
     pageFormat: C.PageFormat = C.A4_FORMAT,
