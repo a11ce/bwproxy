@@ -4,8 +4,8 @@ from tqdm import tqdm
 import os
 import re
 
-import projectConstants as C
-from projectTypes import Card, Deck, Flavor, XY, Box  # type: ignore
+from . import projectConstants as C
+from .projectTypes import Card, Deck, Flavor, XY, Box  # type: ignore
 
 RgbColor = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 
@@ -380,24 +380,24 @@ def colorBorders(card: Card, image: Image.Image) -> Image.Image:
 # Symbol
 
 
-def resizeSetSymbol(symbol: Image.Image) -> Image.Image:
-    symSize = symbol.size
-    scaleFactor = max(symSize[0] / C.SYMBOL_SIZE, symSize[1] / C.SYMBOL_SIZE)
-    symbol = symbol.resize(
-        size=(int(symSize[0] / scaleFactor), int(symSize[1] / scaleFactor))
+def resizeSetIcon(setIcon: Image.Image) -> Image.Image:
+    iconSize = setIcon.size
+    scaleFactor = max(iconSize[0] / C.SYMBOL_SIZE, iconSize[1] / C.SYMBOL_SIZE)
+    setIcon = setIcon.resize(
+        size=(int(iconSize[0] / scaleFactor), int(iconSize[1] / scaleFactor))
     )
-    return symbol
+    return setIcon
 
 
-def correctSymbolPosition(symbol: Image.Image, position: XY) -> XY:
-    symbolSize: XY = symbol.size
+def correctSetIconPosition(setIcon: Image.Image, position: XY) -> XY:
+    iconSize: XY = setIcon.size
     return (
-        position[0] + (C.SYMBOL_SIZE - symbolSize[0]) // 2,
-        position[1] + (C.SYMBOL_SIZE - symbolSize[1]) // 2,
+        position[0] + (C.SYMBOL_SIZE - iconSize[0]) // 2,
+        position[1] + (C.SYMBOL_SIZE - iconSize[1]) // 2,
     )
 
 
-def pasteSetSymbol(card: Card, image: Image.Image, symbol: Image.Image) -> Image.Image:
+def pasteSetIcon(card: Card, image: Image.Image, setIcon: Image.Image) -> Image.Image:
 
     if card.layout in ["split", "fuse"]:
         image = image.transpose(Image.ROTATE_90)
@@ -409,9 +409,8 @@ def pasteSetSymbol(card: Card, image: Image.Image, symbol: Image.Image) -> Image
     else:
         position = C.STD_SYMBOL_POSITION
     image.paste(
-        im=symbol,
-        box=correctSymbolPosition(symbol=symbol, position=position),
-        mask=symbol,
+        im=setIcon,
+        box=correctSetIconPosition(setIcon=setIcon, position=position)
     )
 
     if card.layout not in ["split", "fuse", "aftermath", "flip"]:
@@ -426,9 +425,8 @@ def pasteSetSymbol(card: Card, image: Image.Image, symbol: Image.Image) -> Image
         position = C.FLIP_SYMBOL_POSITION
 
     image.paste(
-        im=symbol,
-        box=correctSymbolPosition(symbol=symbol, position=position),
-        mask=symbol,
+        im=setIcon,
+        box=correctSetIconPosition(setIcon=setIcon, position=position)
     )
 
     if card.layout in ["split", "fuse", "aftermath"]:
@@ -528,21 +526,21 @@ def drawTitleLine(
         image = image.transpose(Image.ROTATE_180)
 
     pen = ImageDraw.Draw(image)
-    titleFont = ImageFont.truetype(font="MPLANTIN.ttf", size=C.TITLE_FONT_SIZE)
+    manaFont = ImageFont.truetype(font=C.MONOSPACE_FONT, size=C.TITLE_FONT_SIZE)
     xPos = manaAlignRight
     manaCost = printSymbols(card.mana_cost)
     for c in manaCost[::-1]:
         pen.text(
-            (xPos, manaAlignVertical), text=c, font=titleFont, fill="black", anchor="ra"
+            (xPos, manaAlignVertical), text=c, font=manaFont, fill="black", anchor="ra"
         )
-        xPos -= titleFont.getsize(c)[0]
+        xPos -= manaFont.getsize(c)[0]
 
     displayName = flavorNames[card.name] if card.name in flavorNames else card.name
     if card.face_type in ["transform", "modal_dfc"]:
         displayName = f"{C.FONT_CODE_POINT[card.face_symbol]} {displayName}"
 
     nameFont = fitOneLine(
-        fontPath="matrixb.ttf",
+        fontPath=C.SERIF_FONT,
         text=displayName,
         maxWidth=xPos - titleAlignLeft - 2 * C.BORDER,
         fontSize=C.TITLE_FONT_SIZE,
@@ -563,7 +561,7 @@ def drawTitleLine(
         "aftermath",
         "flip",
     ]:
-        trueNameFont = ImageFont.truetype(font="matrixb.ttf", size=C.TEXT_FONT_SIZE)
+        trueNameFont = ImageFont.truetype(font=C.SERIF_FONT, size=C.TEXT_FONT_SIZE)
         pen.text(
             (C.CARD_H // 2, C.STD_LAYOUT.BORDER.ILLUSTRATION + C.BORDER),
             card.name,
@@ -614,7 +612,7 @@ def drawTypeLine(card: Card, image: Image.Image, type: str = "") -> Image.Image:
     pen = ImageDraw.Draw(image)
 
     typeFont = fitOneLine(
-        fontPath="matrixb.ttf",
+        fontPath=C.SERIF_FONT,
         text=card.type_line,
         maxWidth=maxWidth,
         fontSize=C.TYPE_FONT_SIZE,
@@ -694,7 +692,7 @@ def drawTextBox(
     pen = ImageDraw.Draw(image)
 
     (fmtText, textFont) = fitMultiLine(
-        fontPath="MPLANTIN.ttf",
+        fontPath=C.MONOSPACE_FONT,
         cardText=cardText,
         maxWidth=maxWidth,
         maxHeight=maxHeight,
@@ -723,7 +721,7 @@ def drawFuseText(card: Card, image: Image.Image) -> Image.Image:
     pen = ImageDraw.Draw(image)
 
     typeFont = fitOneLine(
-        fontPath="MPLANTIN.ttf",
+        fontPath=C.MONOSPACE_FONT,
         text=card.fuse_text,
         maxWidth=C.CARD_V - 2 * C.BORDER,
         fontSize=C.TEXT_FONT_SIZE,
@@ -760,7 +758,7 @@ def drawPTL(card: Card, image: Image.Image, type: str = "") -> Image.Image:
     pen = ImageDraw.Draw(image)
 
     ptlFont = fitOneLine(
-        fontPath="MPLANTIN.ttf",
+        fontPath=C.MONOSPACE_FONT,
         text=ptl,
         maxWidth=ptlBox[1][0] - ptlBox[0][0] - 2 * C.BORDER,
         fontSize=C.TITLE_FONT_SIZE,
@@ -803,7 +801,7 @@ def drawOther(card: Card, image: Image.Image, type: str = "") -> Image.Image:
 
     pen = ImageDraw.Draw(image)
 
-    credFont = ImageFont.truetype("MPLANTIN.ttf", size=C.OTHER_FONT_SIZE)
+    credFont = ImageFont.truetype(C.MONOSPACE_FONT, size=C.OTHER_FONT_SIZE)
     pen.text(
         (alignLeft, alignVertical),
         text=C.CREDITS,
@@ -813,7 +811,7 @@ def drawOther(card: Card, image: Image.Image, type: str = "") -> Image.Image:
     )
     credLength = pen.textlength(text=C.CREDITS + "   ", font=credFont)
 
-    proxyFont = ImageFont.truetype("matrixb.ttf", size=C.OTHER_FONT_SIZE * 4 // 3)
+    proxyFont = ImageFont.truetype(C.SERIF_FONT, size=C.OTHER_FONT_SIZE * 4 // 3)
     pen.text(
         (alignLeft + credLength, alignVertical - 5),
         text=f"v{C.VERSION}",
@@ -836,7 +834,7 @@ def drawOther(card: Card, image: Image.Image, type: str = "") -> Image.Image:
 def drawCard(
     card: Card,
     isColored: bool = False,
-    symbol: Optional[Image.Image] = None,
+    setIcon: Optional[Image.Image] = None,
     flavorNames: Flavor = {},
     useTextSymbols: bool = True,
 ) -> Image.Image:
@@ -852,8 +850,8 @@ def drawCard(
     image = makeFrame(card=card, image=image)
     if isColored:
         image = colorBorders(card=card, image=image)
-    if symbol is not None:
-        image = pasteSetSymbol(card=card, image=image, symbol=symbol)
+    if setIcon is not None:
+        image = pasteSetIcon(card=card, image=image, setIcon=setIcon)
     image = drawText(
         card=card, image=image, flavorNames=flavorNames, useTextSymbols=useTextSymbols
     )

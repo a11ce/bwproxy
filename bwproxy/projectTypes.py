@@ -3,7 +3,7 @@ from typing import Any, List, Dict, Tuple
 from scrython import Named
 import re
 
-import projectConstants as C
+from . import projectConstants as C
 
 nonColorRe = re.compile(r"[^WUBRG]")
 

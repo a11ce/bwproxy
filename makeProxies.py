@@ -7,9 +7,9 @@ import re
 import os
 import argparse
 
-import drawUtil
-import projectConstants as C
-from projectTypes import Card, Deck, Flavor
+import bwproxy.drawUtil as drawUtil
+import bwproxy.projectConstants as C
+from bwproxy.projectTypes import Card, Deck, Flavor
 
 
 def loadCards(fileLoc: str) -> tuple[Deck, Flavor]:
@@ -100,9 +100,15 @@ if __name__ == "__main__":
         help="location of decklist file",
     )
     parser.add_argument(
-        "--symbol-path",
+        "--set-icon-path",
         # metavar="set_symbol_path",
-        help="location of set symbol file (optional)",
+        help="location of set icon file",
+    )
+    parser.add_argument(
+        "--page-format",
+        default=C.PAGE_FORMAT[0],
+        choices=C.PAGE_FORMAT,
+        help="printing page format",
     )
     parser.add_argument(
         "--color",
@@ -110,10 +116,10 @@ if __name__ == "__main__":
         help="print card frames and mana symbols in color",
     )
     parser.add_argument(
-        "--page-format",
-        default=C.PAGE_FORMAT[0],
-        choices=C.PAGE_FORMAT,
-        help="printing page format (optional)",
+        "--no-text-symbols",
+        action="store_false",
+        dest="useTextSymbols",
+        help="print cards with e.g. {W} instead of the corresponding symbol",
     )
     parser.add_argument(
         "--small",
@@ -121,15 +127,9 @@ if __name__ == "__main__":
         help="print cards at 75%% in size, allowing to fit more in one page",
     )
     parser.add_argument(
-        "--no-text-symbols",
-        action="store_false",
-        dest="useTextSymbols",
-        help="print cards with {W} instead of the corresponding symbol",
-    )
-    parser.add_argument(
         "--no-card-space",
         action="store_true",
-        help="print cards withot space between them",
+        help="print cards without space between them",
     )
 
     args = parser.parse_args()
@@ -137,18 +137,18 @@ if __name__ == "__main__":
     decklistPath: str = args.decklistPath
 
     deckName = decklistPath.split(".")[0]
-    if args.symbol_path:
-        setSymbol = drawUtil.resizeSetSymbol(
-            Image.open(args.symbol_path).convert("RGBA")
+    if args.set_icon_path:
+        setIcon = drawUtil.resizeSetIcon(
+            Image.open(args.set_icon_path).convert("RGBA")
         )
     else:
-        setSymbol = None
+        setIcon = None
 
     allCards, flavorNames = loadCards(decklistPath)
     images = [
         drawUtil.drawCard(
             card=card,
-            symbol=setSymbol,
+            setIcon=setIcon,
             flavorNames=flavorNames,
             isColored=args.color,
             useTextSymbols=args.useTextSymbols,
