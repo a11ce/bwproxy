@@ -463,7 +463,8 @@ def pasteSetIcon(card: Card, image: Image.Image, setIcon: Image.Image) -> Image.
 
 
 def drawLandManaSymbol(card: Card, image: Image.Image) -> Image.Image:
-    landSymbol = Image.open(f"basics/{card.name}.png")
+    landType = card.name.split()[-1]
+    landSymbol = Image.open(f"basics/{landType}.png")
     image.paste(
         landSymbol,
         box=C.LAND_MANA_SYMBOL_POSITION,
@@ -706,7 +707,7 @@ def drawTextBox(
     elif type in ["flipA", "flipB"]:
         layoutInfo = C.FLIP_LAYOUT
     
-    alignVertical = C.STD_LAYOUT.BORDER.RULES_BOX + C.BORDER
+    alignVertical = layoutInfo.BORDER.RULES_BOX + C.BORDER
     try:
         maxHeight = layoutInfo.SIZE.RULES_BOX_FUSE - 2 * C.BORDER
     except KeyError:
@@ -957,4 +958,4 @@ def savePages(
                 ),
             )
 
-        page.save(f"pages/{deckName}/{i // batchNum}.png", "PNG")
+        page.save(f"pages/{deckName}/{i // batchNum + 1:02}.png", "PNG")
