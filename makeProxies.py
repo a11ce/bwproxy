@@ -69,6 +69,12 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
                     continue
 
                 cardCache[cardName] = cardData
+            
+            if ignoreBasicLands and cardData.name in C.BASIC_LANDS:
+                print(
+                    f"You have requested to ignore basic lands. {cardName} will not be printed."
+                )
+                continue
 
             if cardData.has_flavor_name():
                 flavorNames[cardData.name] = cardData.flavor_name
