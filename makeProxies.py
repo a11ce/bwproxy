@@ -33,7 +33,7 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
         flavorNameRegex = re.compile(r"\[(.*?)\]")
         cardNameRegex = re.compile(r"^(?:\d+x? )?(.*?)(?: \[.*?\])?$")
 
-        for line in tqdm(f):
+        for line in f:
             line = removeCommentsRegex.sub("", line)
             line = doubleSpacesRegex.sub(" ", line.strip())
 
@@ -107,19 +107,20 @@ if __name__ == "__main__":
         help="location of decklist file",
     )
     parser.add_argument(
-        "-i", "--set-icon-path",
+        "--icon-path", "-i",
+        metavar="icon_path",
         dest="setIconPath",
         help="location of set icon file",
     )
     parser.add_argument(
-        "-p", "--page-format",
+        "--page-format", "-p",
         default=C.PAGE_FORMAT[0],
         choices=C.PAGE_FORMAT,
         dest="pageFormat",
         help="printing page format",
     )
     parser.add_argument(
-        "-c", "--color",
+        "--color", "-c",
         action="store_true",
         help="print card frames and mana symbols in color",
     )
@@ -130,7 +131,7 @@ if __name__ == "__main__":
         help="print cards with e.g. {W} instead of the corresponding symbol",
     )
     parser.add_argument(
-        "-s", "--small",
+        "--small", "-s",
         action="store_true",
         help="print cards at 75%% in size, allowing to fit more in one page",
     )
@@ -175,7 +176,11 @@ if __name__ == "__main__":
             useTextSymbols=args.useTextSymbols,
             fullArtLands=args.fullArtLands,
         )
-        for card in tqdm(allCards)
+        for card in tqdm(
+            allCards,
+            desc="Card drawing progress: ",
+            unit="card",
+        )
     ]
     drawUtil.savePages(
         images=images,

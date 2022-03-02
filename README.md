@@ -31,7 +31,7 @@ If something doesn't work, please [open an issue on GitHub](https://github.com/a
     - If you want aesthetic consistency (or to play with just paper cards), you can also generate basic land cards. They will be printed with a big mana symbol, but there is an option to remove the symbol and leave them as blank full-art lands, useful for testing a deck without sleeving. It's also the best option for customisation!
 * Optionally, put a grayscale/transparent png in `icons/`. You can use this in place of a set icon to indicate what cube or deck the cards are part of;
 * Run `python3 makeProxies.py [options] input/yourDeck.txt`. The options are listed below:
-    - Add `--set-icon-path icons/yourIcon.png` to add a set icon. If that's not set, the cards will not have a set icon;
+    - Add `--icon-path icons/yourIcon.png` to add a set icon. If the argument is not passed to the program, the cards will not have a set icon;
     - Add `--page-format [format]` to specify the page format. Possible formats are `a4paper` and `letter` (default is `a4paper`);
     - Add `--color` to print the card borders in color. Colored mana symbols are WIP;
     - Add `--no-text-symbols` to have the rules text use the oracle text style for mana symbols (`{W}` instead of the white mana symbol, etc);
