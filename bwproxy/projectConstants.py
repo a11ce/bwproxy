@@ -51,7 +51,8 @@ FRAME_COLORS = {
     "default": "#000000",
 }
 
-BASIC_LANDS = ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]
+BASIC_LANDS_NONSNOW = ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]
+BASIC_LANDS = BASIC_LANDS_NONSNOW + [f"Snow-Covered {l}" for l in BASIC_LANDS_NONSNOW if l != "Wastes"]
 
 MANA_SYMBOLS: List[MTG_COLORS] = ["W", "U", "B", "R", "G"]
 # Can be obtained programmatically, but that's more concise
