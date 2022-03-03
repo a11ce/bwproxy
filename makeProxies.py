@@ -28,7 +28,7 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
         flavorNames: Flavor = {}
 
         doubleSpacesRegex = re.compile(r" {2,}")
-        removeCommentsRegex = re.compile(r"#.*$")
+        removeCommentsRegex = re.compile(r"^//.*$|#.*$")
         cardCountRegex = re.compile(r"^([0-9]+)x?")
         flavorNameRegex = re.compile(r"\[(.*?)\]")
         cardNameRegex = re.compile(r"^(?:\d+x? )?(.*?)(?: \[.*?\])?$")
