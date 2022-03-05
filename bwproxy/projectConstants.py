@@ -1,6 +1,6 @@
 from typing import Any, Generic, TypeVar, Dict, Tuple, List
 
-VERSION = "2.0"
+VERSION = "2.1"
 CREDITS = chr(0x23F) + " https://a11ce.com/bwproxy"
 
 T = TypeVar("T")
@@ -37,6 +37,8 @@ XY = Tuple[int, int]
 Box = Tuple[XY, XY]
 
 CACHE_LOC = "cardcache/cardcache.p"
+TOKEN_CACHE_LOC = "cardcache/tokencache.p"
+BACK_CARD_SYMBOLS_LOC = "symbols"
 
 MTG_COLORS = str # Literal["W", "U", "B", "R", "G"]
 
@@ -89,20 +91,12 @@ DFC_LAYOUTS = ["transform", "modal_dfc"]
 # SPLIT_LAYOUTS = ["flip", "split", "fuse", "aftermath", "adventure"]
 
 TODO = """
-Split / Fuse / Flip / Adventure frames (Maybe also Class, Sagas and Leveler?) ❌
-Better Double-Faced card handler (front/back face symbols, add both to the file) ✅
-Better search functionality:
-* searching "Likeness of the Seeker" results in "Azusa's Many Journeys" ✅
-* seaching "Alive" results in "Buried Alive" (should be "Alive // Well") ✅
-* searching "Endbringer" results in "Shauku, Endbringer" ✅
-Replace magic numbers (750, 1050...) with constants ❌
-Add options for A4 and letter paper ✅
-Better mana symbols, both in cost and in text ✅
-(should be in the new font file, only problem is Tamiyo, Compleated Sage) ✅
-Color indicator in text ✅
-Tested searching for Failure // Comply via api, Failure is the first result
-
-Move to Scryfall API ✅
+Class, Sagas and Leveler frames?
+Colored Mana symbols
+Flavor Names for DFC, Adventures and possibly Flip?
+Fix Font spacing
+Stop changing fonts
+COMMENTS
 """
 
 
@@ -383,4 +377,72 @@ LAND_MANA_SYMBOL_SIZE = 600
 LAND_MANA_SYMBOL_POSITION: XY = (
     (CARD_H - LAND_MANA_SYMBOL_SIZE) // 2,
     LAND_LAYOUT.BORDER.ILLUSTRATION + (LAND_LAYOUT.SIZE.ILLUSTRATION - LAND_MANA_SYMBOL_SIZE) // 2
+)
+
+
+TOKEN_LAYOUT = Map[Map[int]](
+    {
+        "BORDER": Map[int](
+            {
+                "TITLE": 0,
+            }
+        ),
+        "SIZE": Map[int](
+            {
+                "TITLE": STD_LAYOUT.SIZE.TITLE,
+                "TYPE_LINE": STD_LAYOUT.SIZE.TYPE_LINE,
+                "RULES_BOX": 100,
+                "OTHER": STD_LAYOUT.SIZE.OTHER,
+            }
+        ),
+        "FONT_MIDDLE": Map[int](),
+    }
+)
+TOKEN_LAYOUT.BORDER.ILLUSTRATION = TOKEN_LAYOUT.BORDER.TITLE + TOKEN_LAYOUT.SIZE.TITLE
+TOKEN_LAYOUT.BORDER.OTHER = CARD_V - TOKEN_LAYOUT.SIZE.OTHER
+TOKEN_LAYOUT.BORDER.RULES_BOX = TOKEN_LAYOUT.BORDER.OTHER - TOKEN_LAYOUT.SIZE.RULES_BOX
+TOKEN_LAYOUT.BORDER.TYPE_LINE = TOKEN_LAYOUT.BORDER.RULES_BOX - TOKEN_LAYOUT.SIZE.TYPE_LINE
+TOKEN_LAYOUT.SIZE.ILLUSTRATION = TOKEN_LAYOUT.BORDER.TYPE_LINE - TOKEN_LAYOUT.BORDER.ILLUSTRATION
+TOKEN_LAYOUT.FONT_MIDDLE.TYPE_LINE = (
+    TOKEN_LAYOUT.BORDER.TYPE_LINE + TOKEN_LAYOUT.SIZE.TYPE_LINE // 2 - BORDER // 2
+)
+TOKEN_SET_ICON_POSITION: XY = (
+    CARD_H - BORDER - SET_ICON_SIZE,
+    TOKEN_LAYOUT.BORDER.TYPE_LINE + (TOKEN_LAYOUT.SIZE.TYPE_LINE - SET_ICON_SIZE) // 2,
+)
+TOKEN_ARC_WIDTH = 600
+
+EMBLEM_LAYOUT = Map[Map[int]](
+    {
+        "BORDER": Map[int](
+            {
+                "TITLE": 0,
+            }
+        ),
+        "SIZE": Map[int](
+            {
+                "TITLE": STD_LAYOUT.SIZE.TITLE,
+                "RULES_BOX": 250,
+                "TYPE_LINE": STD_LAYOUT.SIZE.TYPE_LINE,
+                "OTHER": STD_LAYOUT.SIZE.OTHER,
+            }
+        ),
+        "FONT_MIDDLE": Map[int](),
+    }
+)
+EMBLEM_LAYOUT.BORDER.ILLUSTRATION = EMBLEM_LAYOUT.BORDER.TITLE + EMBLEM_LAYOUT.SIZE.TITLE
+EMBLEM_LAYOUT.BORDER.OTHER = CARD_V - EMBLEM_LAYOUT.SIZE.OTHER
+EMBLEM_LAYOUT.BORDER.RULES_BOX = EMBLEM_LAYOUT.BORDER.OTHER - EMBLEM_LAYOUT.SIZE.RULES_BOX
+EMBLEM_LAYOUT.BORDER.TYPE_LINE = EMBLEM_LAYOUT.BORDER.RULES_BOX - EMBLEM_LAYOUT.SIZE.TYPE_LINE
+EMBLEM_LAYOUT.SIZE.ILLUSTRATION = EMBLEM_LAYOUT.BORDER.TYPE_LINE - EMBLEM_LAYOUT.BORDER.ILLUSTRATION
+EMBLEM_LAYOUT.FONT_MIDDLE.TYPE_LINE = (
+    EMBLEM_LAYOUT.BORDER.TYPE_LINE + EMBLEM_LAYOUT.SIZE.TYPE_LINE // 2 - BORDER // 2
+)
+EMBLEM_SET_ICON_POSITION: XY = (
+    CARD_H - BORDER - SET_ICON_SIZE,
+    EMBLEM_LAYOUT.BORDER.TYPE_LINE + (EMBLEM_LAYOUT.SIZE.TYPE_LINE - SET_ICON_SIZE) // 2,
+)
+EMBLEM_SYMBOL_POSITION: XY = (
+    (CARD_H - LAND_MANA_SYMBOL_SIZE) // 2,
+    EMBLEM_LAYOUT.BORDER.ILLUSTRATION + (EMBLEM_LAYOUT.SIZE.ILLUSTRATION - LAND_MANA_SYMBOL_SIZE) // 2
 )

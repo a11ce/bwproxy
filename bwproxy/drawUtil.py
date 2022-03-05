@@ -18,7 +18,7 @@ specialTextRegex = re.compile(r"\{.+?\}")
 
 
 def replFunction(m: Match[str]):
-    t = m.group()
+    t = m.group().upper()
     if t in C.FONT_CODE_POINT:
         return C.FONT_CODE_POINT[t]
     return t
@@ -140,6 +140,65 @@ def makeFrameBasicLand(image: Image.Image) -> Image.Image:
     )
 
     return image
+
+
+def makeFrameToken(card: Card, image: Image.Image) -> Image.Image:
+    if (card.isToken() and not card.oracle_text == "") or card.isEmblem():
+        borders = C.EMBLEM_LAYOUT.BORDER
+    else:
+        borders = C.TOKEN_LAYOUT.BORDER
+
+    pen = ImageDraw.Draw(image)
+
+    # Illustration upper border
+    pen.rectangle(
+        ((0, 0), (C.CARD_H, borders.ILLUSTRATION)), outline=DEF_BORDER_COLOR, width=5
+    )
+    # Type line upper border
+    pen.rectangle(
+        ((0, 0), (C.CARD_H, borders.TYPE_LINE)), outline=DEF_BORDER_COLOR, width=5
+    )
+    # Rules box upper border
+    pen.rectangle(
+        ((0, 0), (C.CARD_H, borders.RULES_BOX)), outline=DEF_BORDER_COLOR, width=5
+    )
+    # Other info upper border
+    pen.rectangle(
+        ((0, 0), (C.CARD_H, borders.OTHER)), outline=DEF_BORDER_COLOR, width=5
+    )
+
+    if card.isToken():
+        pen.arc(
+            (
+                (0, borders.ILLUSTRATION - 4),
+                (C.TOKEN_ARC_WIDTH, borders.ILLUSTRATION + C.TOKEN_ARC_WIDTH - 4)
+            ),
+            start=180,
+            end=270,
+            fill=DEF_BORDER_COLOR,
+            width=5,
+        )
+        pen.arc(
+            (
+                (C.CARD_H - C.TOKEN_ARC_WIDTH, borders.ILLUSTRATION - 4),
+                (C.CARD_H, borders.ILLUSTRATION + C.TOKEN_ARC_WIDTH - 4)
+            ),
+            start=270,
+            end=360,
+            fill=DEF_BORDER_COLOR,
+            width=5,
+        )
+        # pen.ellipse(
+        #     ((0, borders.ILLUSTRATION), (C.CARD_H, borders.TYPE_LINE)),
+        #     outline=DEF_BORDER_COLOR,
+        #     width=5,
+        # )
+
+    if card.hasPTL():
+        pen.rectangle(C.STD_PTL_BOX, outline=DEF_BORDER_COLOR, fill="white", width=5)
+
+    return image
+    
 
 
 
@@ -288,6 +347,8 @@ def makeFrame(card: Card, image: Image.Image) -> Image.Image:
         image = image.transpose(Image.ROTATE_180)
     elif card.name in C.BASIC_LANDS:
         image = makeFrameBasicLand(image=image)
+    elif card.isToken() or card.isEmblem():
+        image = makeFrameToken(card=card, image=image)
     else:
         image = makeFrameStandard(image=image, hasPTL=card.hasPTL())
     return image
@@ -432,6 +493,10 @@ def pasteSetIcon(card: Card, image: Image.Image, setIcon: Image.Image) -> Image.
         position = C.FLIP_SET_ICON_POSITION
     elif card.name in C.BASIC_LANDS:
         position = C.LAND_SET_ICON_POSITION
+    elif card.isToken() and card.oracle_text == "":
+        position = C.TOKEN_SET_ICON_POSITION
+    elif card.isToken() or card.isEmblem():
+        position = C.EMBLEM_SET_ICON_POSITION
     else:
         position = C.STD_SET_ICON_POSITION
     image.paste(
@@ -464,7 +529,7 @@ def pasteSetIcon(card: Card, image: Image.Image, setIcon: Image.Image) -> Image.
 
 def drawLandManaSymbol(card: Card, image: Image.Image) -> Image.Image:
     landType = card.name.split()[-1]
-    landSymbol = Image.open(f"basics/{landType}.png")
+    landSymbol = Image.open(f"{C.BACK_CARD_SYMBOLS_LOC}/{landType}.png")
     image.paste(
         landSymbol,
         box=C.LAND_MANA_SYMBOL_POSITION,
@@ -472,6 +537,15 @@ def drawLandManaSymbol(card: Card, image: Image.Image) -> Image.Image:
     )
     return image
 
+def drawEmblemSymbol(card: Card, image: Image.Image) -> Image.Image:
+    if card.isEmblem():
+        emblemSymbol = Image.open(f"{C.BACK_CARD_SYMBOLS_LOC}/Emblem.png")
+        image.paste(
+            emblemSymbol,
+            box=C.EMBLEM_SYMBOL_POSITION,
+            mask=emblemSymbol
+        )
+    return image
 
 # Text
 def drawText(
@@ -526,15 +600,26 @@ def drawText(
             image = drawLandManaSymbol(card=card, image=image)
         image = drawOther(card=card, image=image, type="basicLand")
     else:
+        if card.isEmblem():
+            cardType = "emblem"
+            if not fullArtLands:
+                image = drawEmblemSymbol(card=card, image=image)
+        elif card.isToken():
+            if card.oracle_text == "":
+                cardType = "noRulesToken"
+            else:
+                cardType = "rulesToken"
+        else:
+            cardType = "standard"
         image = drawTitleLine(
-            card=card, image=image, flavorNames=flavorNames, type="standard"
+            card=card, image=image, flavorNames=flavorNames, type=cardType
         )
-        image = drawTypeLine(card=card, image=image, type="standard")
+        image = drawTypeLine(card=card, image=image, type=cardType)
         image = drawTextBox(
-            card=card, image=image, type="standard", useTextSymbols=useTextSymbols
+            card=card, image=image, type=cardType, useTextSymbols=useTextSymbols
         )
-        image = drawPTL(card=card, image=image, type="standard")
-        image = drawOther(card=card, image=image, type="standard")
+        image = drawPTL(card=card, image=image, type=cardType)
+        image = drawOther(card=card, image=image, type=cardType)
     return image
 
 
@@ -549,6 +634,9 @@ def drawTitleLine(
     manaAlignVertical = C.BORDER
     titleAlignLeft = C.BORDER
     layoutInfo = C.STD_LAYOUT
+    alignTitle = "lm"
+
+    isToken = type in ["noRulesToken", "rulesToken", "emblem"]
 
     if type == "splitA":
         manaAlignRight = C.CARD_V // 2 - C.BORDER
@@ -563,6 +651,9 @@ def drawTitleLine(
         manaAlignRight = C.CARD_H // 2 - C.BORDER
         manaAlignVertical = C.ADVENTURE_LAYOUT.BORDER.TITLE + C.BORDER
         layoutInfo = C.ADVENTURE_LAYOUT
+    elif isToken:
+        titleAlignLeft = C.CARD_H // 2
+        alignTitle = "mm"
     
     titleAlignVertical = layoutInfo.FONT_MIDDLE.TITLE
 
@@ -570,7 +661,7 @@ def drawTitleLine(
         image = image.transpose(Image.ROTATE_180)
 
     pen = ImageDraw.Draw(image)
-    manaFont = ImageFont.truetype(font=C.MONOSPACE_FONT, size=C.TITLE_FONT_SIZE)
+    manaFont = ImageFont.truetype(font=C.SERIF_FONT, size=C.TITLE_FONT_SIZE)
     xPos = manaAlignRight
     manaCost = printSymbols(card.mana_cost)
     for c in manaCost[::-1]:
@@ -583,10 +674,15 @@ def drawTitleLine(
     if card.face_type in ["transform", "modal_dfc"]:
         displayName = f"{C.FONT_CODE_POINT[card.face_symbol]} {displayName}"
 
+    if isToken:
+        maxWidth = C.CARD_H - 2 * C.BORDER
+    else:
+        maxWidth = xPos - titleAlignLeft - 2 * C.BORDER
+
     nameFont = fitOneLine(
         fontPath=C.SERIF_FONT,
         text=displayName,
-        maxWidth=xPos - titleAlignLeft - 2 * C.BORDER,
+        maxWidth=maxWidth,
         fontSize=C.TITLE_FONT_SIZE,
     )
     pen.text(
@@ -597,7 +693,7 @@ def drawTitleLine(
         text=displayName,
         font=nameFont,
         fill="black",
-        anchor="lm",
+        anchor=alignTitle,
     )
     if card.name in flavorNames and card.face_type not in [
         "split",
@@ -644,8 +740,12 @@ def drawTypeLine(card: Card, image: Image.Image, type: str = "") -> Image.Image:
         layoutInfo = C.AFTERMATH_LAYOUT
     elif type in ["flipA", "flipB"]:
         layoutInfo = C.FLIP_LAYOUT
-    elif card.name in C.BASIC_LANDS:
+    elif type == "basicLand":
         layoutInfo = C.LAND_LAYOUT
+    elif type == "noRulesToken":
+        layoutInfo = C.TOKEN_LAYOUT
+    elif type in ["rulesToken", "emblem"]:
+        layoutInfo = C.EMBLEM_LAYOUT
 
     alignVertical = layoutInfo.FONT_MIDDLE.TYPE_LINE
 
@@ -679,7 +779,7 @@ def drawTypeLine(card: Card, image: Image.Image, type: str = "") -> Image.Image:
 def drawTextBox(
     card: Card, image: Image.Image, type: str = "", useTextSymbols: bool = True
 ) -> Image.Image:
-    cardText = f"{card.color_indicator_reminder_text}{card.oracle_text}"
+    cardText = f"{card.color_indicator_reminder_text}{card.oracle_text}".strip()
     if useTextSymbols:
         cardText = printSymbols(cardText)
 
@@ -706,6 +806,10 @@ def drawTextBox(
         layoutInfo = C.AFTERMATH_LAYOUT
     elif type in ["flipA", "flipB"]:
         layoutInfo = C.FLIP_LAYOUT
+    elif type == "noRulesToken":
+        layoutInfo = C.TOKEN_LAYOUT
+    elif type in ["rulesToken", "emblem"]:
+        layoutInfo = C.EMBLEM_LAYOUT
     
     alignVertical = layoutInfo.BORDER.RULES_BOX + C.BORDER
     try:
