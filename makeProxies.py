@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing import Dict
-from scrython import Named, ScryfallError
+from typing import Dict, List, Optional
+from scrython import Named, Search, ScryfallError
 from PIL import Image
 from tqdm import tqdm
 import pickle
@@ -12,26 +12,103 @@ import bwproxy.drawUtil as drawUtil
 import bwproxy.projectConstants as C
 from bwproxy.projectTypes import Card, Deck, Flavor
 
+def disambiguateTokenResults(query: str, results: List[Card]) -> List[Card]:
+    singleFaced: List[Card] = []
+    disambiguated: Dict[str, Card] = {}
+    for card in results:
+        try:
+            singleFaced.extend(card.card_faces)
+        except:
+            singleFaced.append(card)
+    for card in singleFaced:
+        if (
+            query.lower().replace(",", "") in card.name.lower().replace(",", ""
+            ) and
+            card.type_line != "Token" and card.type_line != ""
+        ):
+            index = f"{card.name}\n{card.type_line}\n{sorted(card.colors)}\n{card.oracle_text}"
+            if card.hasPT():
+                index += f"\n{card.power}/{card.toughness}"
+            disambiguated[index] = card
+    
+    return list(disambiguated.values())
+
+def searchToken(tokenName: str, tokenType: str = "token") -> List[Card]:
+    if tokenType == "emblem":
+        exactName = f"{tokenName} Emblem"
+    else:
+        exactName = tokenName
+    try:
+        cardQuery = Search(q=f"type:{tokenType} !'{exactName}")
+        results = [Card(cardData) for cardData in cardQuery.data()]  # type: ignore
+    except ScryfallError:
+        try:
+            cardQuery = Search(q=f"type:{tokenType} {tokenName}")
+            results = [Card(cardData) for cardData in cardQuery.data()]  # type: ignore
+        except ScryfallError:
+            results: List[Card] = []
+    return disambiguateTokenResults(query=tokenName, results=results)
+
+def parseToken(text: str, name: Optional[str] = None) -> Card:
+    data = [line.strip() for line in text.split(";")]
+    
+    if data[1]:
+        type_line = f"Token {data[0]} — {data[1]}"
+    else:
+        type_line = f"Token {data[0]}"
+
+    name = name if name else data[1]
+    jsonData = {
+        "type_line": type_line,
+        "name": name,
+        "colors": [color for color in data[2] if color != "C"],
+        "layout": "token",
+        "mana_cost": "",
+    }
+    if "Creature" in jsonData["type_line"] or "Vehicle" in jsonData["type_line"]:
+        try: 
+            pt = data[3].split("/")
+            jsonData["power"] = pt[0]
+            jsonData["toughness"] = pt[1]
+            other = 4
+        except:
+            raise Exception(f"Power/Toughness missing for token: {name}")
+    else:
+        other = 3
+    text_lines = [line for line in data[other:] if line]
+    jsonData["oracle_text"] = "\n".join(text_lines)
+    return Card(jsonData)
+
 
 def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavor]:
 
     cardCache: Dict[str, Card]
+    tokenCache: Dict[str, Card]
 
     if os.path.exists(C.CACHE_LOC):
         with open(C.CACHE_LOC, "rb") as p:
             cardCache = pickle.load(p)
     else:
         cardCache = {}
+    
+    if os.path.exists(C.TOKEN_CACHE_LOC):
+        with open(C.TOKEN_CACHE_LOC, "rb") as p:
+            tokenCache = pickle.load(p)
+    else:
+        tokenCache = {}
 
     with open(fileLoc) as f:
         cardsInDeck: Deck = []
         flavorNames: Flavor = {}
 
+        tokenEmblemRegex = re.compile(r"^(?:\d+x )?\((token|emblem)\)", flags=re.I)
+        if tokenEmblemRegex:
+            pass
         doubleSpacesRegex = re.compile(r" {2,}")
         removeCommentsRegex = re.compile(r"^//.*$|#.*$")
         cardCountRegex = re.compile(r"^([0-9]+)x?")
         flavorNameRegex = re.compile(r"\[(.*?)\]")
-        cardNameRegex = re.compile(r"^(?:\d+x? )?(.*?)(?: \[.*?\])?$")
+        cardNameRegex = re.compile(r"^(?:\d+x? )?(?:\((?:token|emblem)\) )?(.*?)(?: \[.*?\])?$", flags=re.I)
 
         for line in f:
             line = removeCommentsRegex.sub("", line)
@@ -44,8 +121,8 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
             cardCount = int(cardCountMatch.groups()[0]) if cardCountMatch else 1
 
             flavorNameMatch = flavorNameRegex.search(line)
-
             cardNameMatch = cardNameRegex.search(line)
+            tokenMatch = tokenEmblemRegex.search(line)
 
             if cardNameMatch:
                 cardName = cardNameMatch.groups()[0]
@@ -57,6 +134,34 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
                     f"You have requested to ignore basic lands. {cardName} will not be printed."
                 )
                 continue
+
+            if tokenMatch:
+                tokenType = tokenMatch.groups()[0].lower()
+                if ";" in cardName:
+                    if flavorNameMatch:
+                        tokenName = flavorNameMatch.groups()[0]
+                    else:
+                        tokenName = None
+                    tokenData = parseToken(text=cardName, name=tokenName)
+                elif cardName in tokenCache:
+                    tokenData = tokenCache[cardName]
+                else:
+                    print(f"{cardName} not in cache. searching...")
+                    tokenList = searchToken(tokenName=cardName, tokenType=tokenType)
+                    
+                    if len(tokenList) == 0:
+                        print(f"Skipping {cardName}. No corresponding tokens found")
+                        continue
+                    if len(tokenList) > 1:
+                        print(f"Skipping {cardName}. Too many tokens found. Consider specifying the token info in the input file")
+                        continue
+                    tokenData = tokenList[0]
+
+                tokenCache[cardName] = tokenData
+                for _ in range(cardCount):
+                    cardsInDeck.append(tokenData)
+                continue
+
 
             if cardName in cardCache:
                 cardData = cardCache[cardName]
@@ -95,6 +200,10 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
     os.makedirs(os.path.dirname(C.CACHE_LOC), exist_ok=True)
     with open(C.CACHE_LOC, "wb") as p:
         pickle.dump(cardCache, p)
+    
+    os.makedirs(os.path.dirname(C.TOKEN_CACHE_LOC), exist_ok=True)
+    with open(C.TOKEN_CACHE_LOC, "wb") as p:
+        pickle.dump(tokenCache, p)
 
     return (cardsInDeck, flavorNames)
 

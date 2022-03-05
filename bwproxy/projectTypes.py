@@ -30,6 +30,14 @@ class Card:
         else:
             self.data = card
 
+        if self.isEmblem():
+            self.data["type_line"] = "Emblem"
+            self.data["name"] = self.data["name"].replace(" Emblem", "")
+
+        if self.isToken():
+            if len(self.colors) > 0:
+                self.data["color_indicator"] = self.colors
+
         try:
             layout = self.layout
         except:
@@ -46,6 +54,12 @@ class Card:
         if attr in self.data:
             return self.data[attr]
         raise KeyError(f"This card has no key {attr}: {self.name}")
+
+    def __str__(self) -> str:
+        return f"Card ({self.name})"
+    
+    def __repr__(self) -> str:
+        return str(self)
 
     @property
     def name(self) -> str:
@@ -141,7 +155,11 @@ class Card:
                 colorIndicatorText = colorIndicatorNames[0]
             else:
                 colorIndicatorText = f'{", ".join(colorIndicatorNames[:-1])} and {colorIndicatorNames[-1]}'
-        return f"({self.name} is {colorIndicatorText}.)\n"
+        if (self.isToken() and self.name in self.type_line):
+            name = "This token"
+        else:
+            name = self.name
+        return f"({name} is {colorIndicatorText}.)\n"
 
     def hasPT(self) -> bool:
         try:
@@ -159,6 +177,12 @@ class Card:
 
     def hasPTL(self) -> bool:
         return self.hasPT() or self.hasL()
+
+    def isToken(self) -> bool:
+        return "Token" in self.type_line
+    
+    def isEmblem(self) -> bool:
+        return "Emblem" in self.type_line
 
     @property
     def flavor_name(self) -> str:
