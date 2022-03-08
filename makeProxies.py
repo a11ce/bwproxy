@@ -12,6 +12,7 @@ import bwproxy.drawUtil as drawUtil
 import bwproxy.projectConstants as C
 from bwproxy.projectTypes import Card, Deck, Flavor
 
+
 def disambiguateTokenResults(query: str, results: List[Card]) -> List[Card]:
     singleFaced: List[Card] = []
     disambiguated: Dict[str, Card] = {}
@@ -22,19 +23,20 @@ def disambiguateTokenResults(query: str, results: List[Card]) -> List[Card]:
             singleFaced.append(card)
     for card in singleFaced:
         if (
-            query.lower().replace(",", "") in card.name.lower().replace(",", ""
-            ) and
-            card.type_line != "Token" and card.type_line != ""
+            query.lower().replace(",", "") in card.name.lower().replace(",", "")
+            and card.type_line != "Token"
+            and card.type_line != ""
         ):
             index = f"{card.name}\n{card.type_line}\n{sorted(card.colors)}\n{card.oracle_text}"
             if card.hasPT():
                 index += f"\n{card.power}/{card.toughness}"
             disambiguated[index] = card
-    
+
     return list(disambiguated.values())
 
-def searchToken(tokenName: str, tokenType: str = "token") -> List[Card]:
-    if tokenType == "emblem":
+
+def searchToken(tokenName: str, tokenType: str = C.TOKEN) -> List[Card]:
+    if tokenType == C.EMBLEM:
         exactName = f"{tokenName} Emblem"
     else:
         exactName = tokenName
@@ -49,9 +51,10 @@ def searchToken(tokenName: str, tokenType: str = "token") -> List[Card]:
             results: List[Card] = []
     return disambiguateTokenResults(query=tokenName, results=results)
 
+
 def parseToken(text: str, name: Optional[str] = None) -> Card:
     data = [line.strip() for line in text.split(";")]
-    
+
     if data[1]:
         type_line = f"Token {data[0]} — {data[1]}"
     else:
@@ -62,11 +65,11 @@ def parseToken(text: str, name: Optional[str] = None) -> Card:
         "type_line": type_line,
         "name": name,
         "colors": [color for color in data[2] if color != "C"],
-        "layout": "token",
+        "layout": C.TOKEN,
         "mana_cost": "",
     }
     if "Creature" in jsonData["type_line"] or "Vehicle" in jsonData["type_line"]:
-        try: 
+        try:
             pt = data[3].split("/")
             jsonData["power"] = pt[0]
             jsonData["toughness"] = pt[1]
@@ -90,7 +93,7 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
             cardCache = pickle.load(p)
     else:
         cardCache = {}
-    
+
     if os.path.exists(C.TOKEN_CACHE_LOC):
         with open(C.TOKEN_CACHE_LOC, "rb") as p:
             tokenCache = pickle.load(p)
@@ -108,7 +111,9 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
         removeCommentsRegex = re.compile(r"^//.*$|#.*$")
         cardCountRegex = re.compile(r"^([0-9]+)x?")
         flavorNameRegex = re.compile(r"\[(.*?)\]")
-        cardNameRegex = re.compile(r"^(?:\d+x? )?(?:\((?:token|emblem)\) )?(.*?)(?: \[.*?\])?$", flags=re.I)
+        cardNameRegex = re.compile(
+            r"^(?:\d+x? )?(?:\((?:token|emblem)\) )?(.*?)(?: \[.*?\])?$", flags=re.I
+        )
 
         for line in f:
             line = removeCommentsRegex.sub("", line)
@@ -148,12 +153,14 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
                 else:
                     print(f"{cardName} not in cache. searching...")
                     tokenList = searchToken(tokenName=cardName, tokenType=tokenType)
-                    
+
                     if len(tokenList) == 0:
                         print(f"Skipping {cardName}. No corresponding tokens found")
                         continue
                     if len(tokenList) > 1:
-                        print(f"Skipping {cardName}. Too many tokens found. Consider specifying the token info in the input file")
+                        print(
+                            f"Skipping {cardName}. Too many tokens found. Consider specifying the token info in the input file"
+                        )
                         continue
                     tokenData = tokenList[0]
 
@@ -161,7 +168,6 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
                 for _ in range(cardCount):
                     cardsInDeck.append(tokenData)
                 continue
-
 
             if cardName in cardCache:
                 cardData = cardCache[cardName]
@@ -174,7 +180,7 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
                     continue
 
                 cardCache[cardName] = cardData
-            
+
             if ignoreBasicLands and cardData.name in C.BASIC_LANDS:
                 print(
                     f"You have requested to ignore basic lands. {cardName} will not be printed."
@@ -200,7 +206,7 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
     os.makedirs(os.path.dirname(C.CACHE_LOC), exist_ok=True)
     with open(C.CACHE_LOC, "wb") as p:
         pickle.dump(cardCache, p)
-    
+
     os.makedirs(os.path.dirname(C.TOKEN_CACHE_LOC), exist_ok=True)
     with open(C.TOKEN_CACHE_LOC, "wb") as p:
         pickle.dump(tokenCache, p)
@@ -216,20 +222,23 @@ if __name__ == "__main__":
         help="location of decklist file",
     )
     parser.add_argument(
-        "--icon-path", "-i",
+        "--icon-path",
+        "-i",
         metavar="icon_path",
         dest="setIconPath",
         help="location of set icon file",
     )
     parser.add_argument(
-        "--page-format", "-p",
+        "--page-format",
+        "-p",
         default=C.PAGE_FORMAT[0],
         choices=C.PAGE_FORMAT,
         dest="pageFormat",
         help="printing page format",
     )
     parser.add_argument(
-        "--color", "-c",
+        "--color",
+        "-c",
         action="store_true",
         help="print card frames and mana symbols in color",
     )
@@ -240,7 +249,8 @@ if __name__ == "__main__":
         help="print cards with e.g. {W} instead of the corresponding symbol",
     )
     parser.add_argument(
-        "--small", "-s",
+        "--small",
+        "-s",
         action="store_true",
         help="print cards at 75%% in size, allowing to fit more in one page",
     )
@@ -257,7 +267,8 @@ if __name__ == "__main__":
         help="print full art basic lands instead of big symbol basic lands",
     )
     parser.add_argument(
-        "--ignore-basic-lands", "--ignore-basics",
+        "--ignore-basic-lands",
+        "--ignore-basics",
         action="store_true",
         dest="ignoreBasicLands",
         help="skip basic lands when generating images",
@@ -266,16 +277,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     decklistPath: str = args.decklistPath
-    
+
     deckName = decklistPath.split("/")[-1].split("\\")[-1].split(".")[0]
     if args.setIconPath:
-        setIcon = drawUtil.resizeSetIcon(
-            Image.open(args.setIconPath).convert("RGBA")
-        )
+        setIcon = drawUtil.resizeSetIcon(Image.open(args.setIconPath).convert("RGBA"))
     else:
         setIcon = None
 
-    allCards, flavorNames = loadCards(decklistPath, ignoreBasicLands=args.ignoreBasicLands)
+    allCards, flavorNames = loadCards(
+        decklistPath, ignoreBasicLands=args.ignoreBasicLands
+    )
     images = [
         drawUtil.drawCard(
             card=card,
