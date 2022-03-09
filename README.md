@@ -39,7 +39,8 @@ If something doesn't work, please [open an issue on GitHub](https://github.com/a
     - Add `--small` to print the cards at 75% scale. This lets you print more cards on a single page;
     - Add `--no-card-space` to print the cards without blank space between them.
     - Add `--full-art-lands` to print basic lands without the big mana symbol.
-    - Add `--ignore-basic-lands` to ignore basic lands when generating proxies. 
+    - Add `--ignore-basic-lands` to ignore basic lands when generating proxies.
+    - Add `--alternative-frames` to print flip cards as if they were double-faced cards and aftermath cards as if they were split cards.
 1. Print each page in `pages/yourDeck/` at full size and cut just outside the border of each card.
 
 ## Add tokens and emblems

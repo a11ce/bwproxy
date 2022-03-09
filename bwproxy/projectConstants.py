@@ -177,7 +177,6 @@ FONT_CODE_POINT["{PAINTBRUSH}"] = chr(0x23F)  # Paintbrush Symbol
 
 TODO = """
 Class, Sagas and Leveler frames?
-Flip as dfc, aftermath as split (with flag)
 Colored Mana symbols
 Flavor Names for DFC, Adventures and possibly Flip?
 Stop changing fonts
@@ -358,10 +357,10 @@ SPLIT_LAYOUT_LEFT = calcLayoutData(
 SPLIT_LAYOUT_RIGHT = calcLayoutData(
     layoutType=SPLIT, bottom=CARD_H, left=CARD_V // 2, right=CARD_V, rulesBoxSize=360
 )
-SPLIT_SET_ICON_POSITION: Tuple[XY, XY] = (
+SPLIT_SET_ICON_POSITION: List[XY] = [
     calcIconPosition(layout=SPLIT_LAYOUT_LEFT),
     calcIconPosition(layout=SPLIT_LAYOUT_RIGHT),
-)
+]
 
 
 # Adventure layout (for the Adventure part of the card, the other one uses the standard layout)
@@ -418,5 +417,19 @@ LAYOUTS: DefaultDict[str, List[Layout]] = defaultdict(
         LAND: [LAND_LAYOUT],
         TOKEN: [TOKEN_LAYOUT],
         EMBLEM: [EMBLEM_LAYOUT],
+    },
+)
+
+SET_ICON_POSITIONS: DefaultDict[str, List[XY]] = defaultdict(
+    lambda: [STD_SET_ICON_POSITION],
+    {
+        SPLIT: SPLIT_SET_ICON_POSITION,
+        FUSE: SPLIT_SET_ICON_POSITION,
+        AFTER: [AFTERMATH_SET_ICON_POSITION, SPLIT_SET_ICON_POSITION[1]],
+        FLIP: [FLIP_SET_ICON_POSITION, FLIP_SET_ICON_POSITION],
+        ADV: [STD_SET_ICON_POSITION, STD_SET_ICON_POSITION],
+        LAND: [LAND_SET_ICON_POSITION],
+        TOKEN: [TOKEN_SET_ICON_POSITION],
+        EMBLEM: [EMBLEM_SET_ICON_POSITION],
     },
 )

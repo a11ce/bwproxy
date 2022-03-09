@@ -55,9 +55,12 @@ class Card:
                 self.data["layout"] = C.FUSE
                 # Adding the fuse text to the main card
                 self.data["fuse_text"] = secondHalfText[-1]
+    
+    def _checkForKey(self, attr: str) -> bool:
+        return attr in self.data
 
-    def _checkForKey(self, attr: str) -> Any:
-        if attr in self.data:
+    def _getKey(self, attr: str) -> Any:
+        if self._checkForKey(attr):
             return self.data[attr]
         raise KeyError(f"This card has no key {attr}: {self.name}")
 
@@ -69,51 +72,51 @@ class Card:
 
     @property
     def name(self) -> str:
-        return self._checkForKey("name")
+        return self._getKey("name")
 
     @property
     def colors(self) -> list[C.MTG_COLORS]:
-        return self._checkForKey("colors")
+        return self._getKey("colors")
 
     @property
     def color_indicator(self) -> list[C.MTG_COLORS]:
-        return self._checkForKey("color_indicator")
+        return self._getKey("color_indicator")
 
     @property
     def mana_cost(self) -> str:
-        return self._checkForKey("mana_cost")
+        return self._getKey("mana_cost")
 
     @property
     def oracle_text(self) -> str:
-        return self._checkForKey("oracle_text")
+        return self._getKey("oracle_text")
 
     @property
     def type_line(self) -> str:
-        return self._checkForKey("type_line")
+        return self._getKey("type_line")
 
     @property
     def power(self) -> str:
-        return self._checkForKey("power")
+        return self._getKey("power")
 
     @property
     def toughness(self) -> str:
-        return self._checkForKey("toughness")
+        return self._getKey("toughness")
 
     @property
     def loyalty(self) -> str:
-        return self._checkForKey("loyalty")
+        return self._getKey("loyalty")
 
     @property
     def layout(self) -> str:
-        return self._checkForKey("layout")
+        return self._getKey("layout")
 
     @property
     def fuse_text(self) -> str:
-        return self._checkForKey("fuse_text")
+        return self._getKey("fuse_text")
 
     @property
     def card_faces(self) -> list[Card]:
-        faces = self._checkForKey("card_faces")
+        faces = self._getKey("card_faces")
         layout = self.layout
         faces[0]["face_type"] = layout
         faces[1]["face_type"] = layout
@@ -158,7 +161,7 @@ class Card:
         It's also added to flip cards, using tap and untap symbols
         Only set up for faces (not whole cards)
         """
-        return self._checkForKey("face_symbol")
+        return self._getKey("face_symbol")
 
     @property
     def face_type(self) -> str:
@@ -168,7 +171,7 @@ class Card:
         If it's not present, returns "standard"
         """
         try:
-            return self._checkForKey("face_type")
+            return self._getKey("face_type")
         except:
             return C.STD
 
@@ -181,7 +184,7 @@ class Card:
         or the main face (DFC), while 1 is the other one.
         Only set up for faces (not whole cards)
         """
-        return self._checkForKey("face_num")
+        return self._getKey("face_num")
 
     @property
     def color_indicator_reminder_text(self) -> str:
@@ -211,18 +214,10 @@ class Card:
         return f"({name} is {colorIndicatorText}.)\n"
 
     def hasPT(self) -> bool:
-        try:
-            self.power
-            return True
-        except KeyError:
-            return False
+        return self._checkForKey("power")
 
     def hasL(self) -> bool:
-        try:
-            self.loyalty
-            return True
-        except KeyError:
-            return False
+        return self._checkForKey("loyalty")
 
     def hasPTL(self) -> bool:
         return self.hasPT() or self.hasL()
@@ -242,16 +237,15 @@ class Card:
     def isTokenOrEmblem(self) -> bool:
         return self.isToken() or self.isEmblem()
 
+    def isTwoParts(self) -> bool:
+        return self._checkForKey("card_faces")
+
     @property
     def flavor_name(self) -> str:
-        return self._checkForKey("flavor_name")
+        return self._getKey("flavor_name")
 
-    def has_flavor_name(self) -> bool:
-        try:
-            self.flavor_name
-            return True
-        except:
-            return False
+    def hasFlavorName(self) -> bool:
+        return self._checkForKey("flavor_name")
 
 
 Deck = List[Card]

@@ -83,7 +83,9 @@ def parseToken(text: str, name: Optional[str] = None) -> Card:
     return Card(jsonData)
 
 
-def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavor]:
+def loadCards(
+    fileLoc: str, ignoreBasicLands: bool = False, alternativeFrames: bool = False
+) -> tuple[Deck, Flavor]:
 
     cardCache: Dict[str, Card]
     tokenCache: Dict[str, Card]
@@ -179,6 +181,7 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
                     print(f"Skipping {cardName}. {err}")
                     continue
 
+                print(f"Card found! {cardData.name}")
                 cardCache[cardName] = cardData
 
             if ignoreBasicLands and cardData.name in C.BASIC_LANDS:
@@ -187,14 +190,16 @@ def loadCards(fileLoc: str, ignoreBasicLands: bool = False) -> tuple[Deck, Flavo
                 )
                 continue
 
-            if cardData.has_flavor_name():
+            if cardData.hasFlavorName():
                 flavorNames[cardData.name] = cardData.flavor_name
 
             if flavorNameMatch:
                 flavorName = flavorNameMatch.groups()[0]
                 flavorNames[cardData.name] = flavorName
 
-            if cardData.layout in C.DFC_LAYOUTS:
+            if cardData.layout in C.DFC_LAYOUTS or (
+                cardData.layout == C.FLIP and alternativeFrames
+            ):
                 facesData = cardData.card_faces
                 for _ in range(cardCount):
                     cardsInDeck.append(facesData[0])
@@ -273,6 +278,12 @@ if __name__ == "__main__":
         dest="ignoreBasicLands",
         help="skip basic lands when generating images",
     )
+    parser.add_argument(
+        "--alternative-frames",
+        action="store_true",
+        dest="alternativeFrames",
+        help="print flip cards as DFC, aftermath as regular split",
+    )
 
     args = parser.parse_args()
 
@@ -285,7 +296,9 @@ if __name__ == "__main__":
         setIcon = None
 
     allCards, flavorNames = loadCards(
-        decklistPath, ignoreBasicLands=args.ignoreBasicLands
+        decklistPath,
+        ignoreBasicLands=args.ignoreBasicLands,
+        alternativeFrames=args.alternativeFrames,
     )
     images = [
         drawUtil.drawCard(
@@ -295,6 +308,7 @@ if __name__ == "__main__":
             isColored=args.color,
             useTextSymbols=args.useTextSymbols,
             fullArtLands=args.fullArtLands,
+            alternativeFrames=args.alternativeFrames,
         )
         for card in tqdm(
             allCards,
