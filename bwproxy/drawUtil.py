@@ -91,7 +91,9 @@ def fitMultiLine(
         return (fmtText, font)
 
 
-def calcTopValue(font: ImageFont.FreeTypeFont, text: str, upperBorder: int, spaceSize: int) -> int:
+def calcTopValue(
+    font: ImageFont.FreeTypeFont, text: str, upperBorder: int, spaceSize: int
+) -> int:
     """
     Calculate the vertical value for top anchor in order to center text vertically.
     See https://pillow.readthedocs.io/en/stable/handbook/text-anchors.html#text-anchors
@@ -107,145 +109,122 @@ def calcTopValue(font: ImageFont.FreeTypeFont, text: str, upperBorder: int, spac
     return upperBorder + (spaceSize - vsize) // 2
 
 
+# Select correct layout info
+
+
+def getLayoutInfoAndRotation(
+    card: Card, alternativeFrames: bool = False
+) -> Tuple[str, Layout, bool, bool]:
+    """
+    Given a card face, return the correct layout for the face,
+    and whether or not it should be rotated or flipped
+    """
+    try:
+        layoutName = card.layout
+    except:
+        layoutName = card.face_type
+
+    if card.isBasicLand():
+        layoutName = C.LAND
+    elif card.isTextlessToken():
+        layoutName = C.TOKEN
+    elif card.isTokenOrEmblem():
+        layoutName = C.EMBLEM
+
+    if alternativeFrames:
+        if layoutName == C.FLIP:
+            layoutName = C.STD
+        elif layoutName == C.AFTER:
+            layoutName = C.SPLIT
+
+    layoutInfoList = C.LAYOUTS[layoutName]
+
+    if layoutName in C.TWO_PARTS_LAYOUTS:
+        layoutInfo = layoutInfoList[card.face_num]
+    else:
+        layoutInfo = layoutInfoList[0]
+
+    rotate = layoutName in [C.SPLIT, C.FUSE] or (
+        layoutName == C.AFTER and card.face_num == 1
+    )
+
+    flip = layoutName == C.FLIP and card.face_num == 1
+
+    return (layoutName, layoutInfo, rotate, flip)
+
+
 # Black frame
 
 
-def makeFrameAll(
-    image: Image.Image,
-    layout: Layout,
-    rotate: bool = False,
-    flip: bool = False,
-    hasPTL: bool = False,
-    isFuse: bool = False,
+def makeFrame(
+    card: Card, image: Image.Image, alternativeFrames: bool = False
 ) -> Image.Image:
-    """
-    Draws the frame based on layout and various other options.
-    All necessary dimensions are included in the layout
-    """
-
-    if rotate:
-        image = image.transpose(Image.ROTATE_90)
-    elif flip:
-        image = image.transpose(Image.ROTATE_180)
-
-    pen = ImageDraw.Draw(image)
-
-    for cardSection in ["ILLUSTRATION", "TYPE_LINE", "RULES_BOX", "OTHER", "BOTTOM"]:
-        pen.rectangle(
-            (
-                (layout.BORDER.LEFT, layout.BORDER.TITLE),
-                (layout.BORDER.RIGHT, layout.BORDER[cardSection]),
-            ),
-            outline=DEF_BORDER_COLOR,
-            width=5,
-        )
-
-    if hasPTL:
-        pen.rectangle(
-            (
-                layout.BORDER.PTL_BOX_LEFT,
-                layout.BORDER.PTL_BOX_TOP,
-                layout.BORDER.PTL_BOX_RIGHT,
-                layout.BORDER.PTL_BOX_BOTTOM,
-            ),
-            outline=DEF_BORDER_COLOR,
-            fill=C.WHITE,
-            width=5,
-        )
-
-    if isFuse:
-        # Using 0 and CARD_V, unfortunately
-        pen.rectangle(
-            ((0, layout.BORDER.FUSE), (C.CARD_V, layout.BORDER.OTHER)),
-            outline=DEF_BORDER_COLOR,
-            fill=C.WHITE,
-            width=5,
-        )
-
-    if rotate:
-        image = image.transpose(Image.ROTATE_270)
-    elif flip:
-        image = image.transpose(Image.ROTATE_180)
-
-    return image
-
-
-def makeFrame(card: Card, image: Image.Image) -> Image.Image:
     """
     Creates a frame on which we can draw the card,
     and draws the basic card parts on it (black only)
     Color, if needed, will be added later
     """
 
-    if card.layout in [C.SPLIT, C.FUSE]:
-        isFuse = card.layout == C.FUSE
-        image = makeFrameAll(
-            image=image,
-            layout=C.SPLIT_LAYOUT_LEFT,
-            rotate=True,
-            isFuse=isFuse,
+    try:
+        faces = card.card_faces
+    except:
+        faces = [card]
+
+    for face in faces:
+        (_, layoutInfo, rotate, flip) = getLayoutInfoAndRotation(
+            card=face, alternativeFrames=alternativeFrames
         )
-        image = makeFrameAll(
-            image=image,
-            layout=C.SPLIT_LAYOUT_RIGHT,
-            rotate=True,
-            isFuse=isFuse,
-        )
-    elif card.layout == C.AFTER:
-        image = makeFrameAll(
-            image=image,
-            layout=C.AFTERMATH_LAYOUT,
-        )
-        image = makeFrameAll(
-            image=image,
-            layout=C.SPLIT_LAYOUT_RIGHT,
-            rotate=True,
-        )
-    elif card.layout == C.ADV:
-        image = makeFrameAll(
-            image=image,
-            layout=C.STD_LAYOUT,
-            hasPTL=card.card_faces[0].hasPTL(),
-        )
-        image = makeFrameAll(
-            image=image,
-            layout=C.ADVENTURE_LAYOUT,
-        )
-    elif card.layout == C.FLIP:
-        image = makeFrameAll(
-            image=image,
-            layout=C.FLIP_LAYOUT,
-            hasPTL=card.card_faces[0].hasPTL(),
-        )
-        image = makeFrameAll(
-            image=image,
-            layout=C.FLIP_LAYOUT,
-            flip=True,
-            hasPTL=card.card_faces[1].hasPTL(),
-        )
-    elif card.isBasicLand():
-        image = makeFrameAll(
-            image=image,
-            layout=C.LAND_LAYOUT,
-        )
-    elif card.isTextlessToken():
-        # TOKEN_LAYOUT is for textless tokens (only color remainder)
-        image = makeFrameAll(
-            image=image,
-            layout=C.TOKEN_LAYOUT,
-        )
-    elif card.isToken() or card.isEmblem():
-        # EMBLEM_LAYOUT is for tokens with text and emblems
-        image = makeFrameAll(
-            image=image,
-            layout=C.EMBLEM_LAYOUT,
-        )
-    else:
-        image = makeFrameAll(
-            image=image,
-            layout=C.STD_LAYOUT,
-            hasPTL=card.hasPTL(),
-        )
+
+        if rotate:
+            image = image.transpose(Image.ROTATE_90)
+        elif flip:
+            image = image.transpose(Image.ROTATE_180)
+
+        pen = ImageDraw.Draw(image)
+
+        for cardSection in [
+            "ILLUSTRATION",
+            "TYPE_LINE",
+            "RULES_BOX",
+            "OTHER",
+            "BOTTOM",
+        ]:
+            pen.rectangle(
+                (
+                    (layoutInfo.BORDER.LEFT, layoutInfo.BORDER.TITLE),
+                    (layoutInfo.BORDER.RIGHT, layoutInfo.BORDER[cardSection]),
+                ),
+                outline=DEF_BORDER_COLOR,
+                width=5,
+            )
+
+        if face.hasPTL():
+            pen.rectangle(
+                (
+                    layoutInfo.BORDER.PTL_BOX_LEFT,
+                    layoutInfo.BORDER.PTL_BOX_TOP,
+                    layoutInfo.BORDER.PTL_BOX_RIGHT,
+                    layoutInfo.BORDER.PTL_BOX_BOTTOM,
+                ),
+                outline=DEF_BORDER_COLOR,
+                fill=C.WHITE,
+                width=5,
+            )
+
+        if face.face_type == C.FUSE:
+            # Using 0 and CARD_V, unfortunately
+            pen.rectangle(
+                ((0, layoutInfo.BORDER.FUSE), (C.CARD_V, layoutInfo.BORDER.OTHER)),
+                outline=DEF_BORDER_COLOR,
+                fill=C.WHITE,
+                width=5,
+            )
+
+        if rotate:
+            image = image.transpose(Image.ROTATE_270)
+        elif flip:
+            image = image.transpose(Image.ROTATE_180)
+
     return image
 
 
@@ -390,48 +369,42 @@ def correctSetIconPosition(setIcon: Image.Image, position: XY) -> XY:
     return position + (setIconSizeXY - iconSize).scale(0.5)
 
 
-def pasteSetIcon(card: Card, image: Image.Image, setIcon: Image.Image) -> Image.Image:
+def pasteSetIcon(
+    card: Card,
+    image: Image.Image,
+    setIcon: Image.Image,
+    alternativeFrames: bool = False,
+) -> Image.Image:
 
-    if card.layout in [C.SPLIT, C.FUSE]:
-        image = image.transpose(Image.ROTATE_90)
-        position = C.SPLIT_SET_ICON_POSITION[0]
-    elif card.layout == C.AFTER:
-        position = C.AFTERMATH_SET_ICON_POSITION
-    elif card.layout == C.FLIP:
-        position = C.FLIP_SET_ICON_POSITION
-    elif card.isBasicLand():
-        position = C.LAND_SET_ICON_POSITION
-    elif card.isTextlessToken():
-        position = C.TOKEN_SET_ICON_POSITION
-    elif card.isTokenOrEmblem():
-        position = C.EMBLEM_SET_ICON_POSITION
-    else:
-        position = C.STD_SET_ICON_POSITION
-    image.paste(
-        im=setIcon,
-        box=correctSetIconPosition(setIcon=setIcon, position=position).tuple(),
-    )
+    try:
+        faces = card.card_faces
+    except:
+        faces = [card]
 
-    if card.layout in [C.SPLIT, C.FUSE]:
-        position = C.SPLIT_SET_ICON_POSITION[1]
-    elif card.layout == C.AFTER:
-        image = image.transpose(Image.ROTATE_90)
-        position = C.SPLIT_SET_ICON_POSITION[1]
-    elif card.layout == C.FLIP:
-        image = image.transpose(Image.ROTATE_180)
-        position = C.FLIP_SET_ICON_POSITION
-    else:
-        return image
+    for face in faces:
+        (layoutName, _, rotate, flip) = getLayoutInfoAndRotation(
+            card=face, alternativeFrames=alternativeFrames
+        )
 
-    image.paste(
-        im=setIcon,
-        box=correctSetIconPosition(setIcon=setIcon, position=position).tuple(),
-    )
+        if layoutName in C.TWO_PARTS_LAYOUTS:
+            position = C.SET_ICON_POSITIONS[layoutName][face.face_num]
+        else:
+            position = C.SET_ICON_POSITIONS[layoutName][0]
 
-    if card.layout in [C.SPLIT, C.FUSE, C.AFTER]:
-        image = image.transpose(Image.ROTATE_270)
-    elif card.layout == C.FLIP:
-        image = image.transpose(Image.ROTATE_180)
+        if rotate:
+            image = image.transpose(Image.ROTATE_90)
+        elif flip:
+            image = image.transpose(Image.ROTATE_180)
+
+        image.paste(
+            im=setIcon,
+            box=correctSetIconPosition(setIcon=setIcon, position=position).tuple(),
+        )
+
+        if rotate:
+            image = image.transpose(Image.ROTATE_270)
+        elif flip:
+            image = image.transpose(Image.ROTATE_180)
 
     return image
 
@@ -461,35 +434,6 @@ def drawIllustrationSymbol(card: Card, image: Image.Image) -> Image.Image:
 # Text
 
 
-def getLayoutInfoAndRotation(card: Card) -> Tuple[Layout, bool, bool]:
-    try:
-        layoutName = card.layout
-    except:
-        layoutName = card.face_type
-
-    if card.isBasicLand():
-        layoutName = C.LAND
-    elif card.isTextlessToken():
-        layoutName = C.TOKEN
-    elif card.isTokenOrEmblem():
-        layoutName = C.EMBLEM
-
-    layoutInfoList = C.LAYOUTS[layoutName]
-
-    if layoutName in C.TWO_PARTS_LAYOUTS:
-        layoutInfo = layoutInfoList[card.face_num]
-    else:
-        layoutInfo = layoutInfoList[0]
-
-    rotate = layoutName in [C.SPLIT, C.FUSE] or (
-        layoutName == C.AFTER and card.face_num == 1
-    )
-
-    flip = layoutName == C.FLIP and card.face_num == 1
-
-    return (layoutInfo, rotate, flip)
-
-
 def drawText(
     card: Card,
     image: Image.Image,
@@ -497,9 +441,10 @@ def drawText(
     useTextSymbols: bool = True,
     fullArtLands: bool = False,
     hasSetIcon: bool = True,
+    alternativeFrames: bool = False,
 ) -> Image.Image:
 
-    if card.layout in C.TWO_PARTS_LAYOUTS:
+    if card.isTwoParts():
         faces = card.card_faces
     else:
         faces = [card]
@@ -507,13 +452,31 @@ def drawText(
     for face in faces:
         if face.face_type == C.ADV and face.face_num == 1:
             hasSetIcon = False
-        image = drawTitleLine(card=face, image=image, flavorNames=flavorNames)
+        image = drawTitleLine(
+            card=face,
+            image=image,
+            flavorNames=flavorNames,
+            alternativeFrames=alternativeFrames,
+        )
         if not fullArtLands:
             image = drawIllustrationSymbol(card=card, image=image)
-        image = drawTypeLine(card=face, image=image, hasSetIcon=hasSetIcon)
-        image = drawTextBox(card=face, image=image, useTextSymbols=useTextSymbols)
-        image = drawPTL(card=face, image=image)
-        image = drawOther(card=face, image=image)
+        image = drawTypeLine(
+            card=face,
+            image=image,
+            hasSetIcon=hasSetIcon,
+            alternativeFrames=alternativeFrames,
+        )
+        image = drawTextBox(
+            card=face,
+            image=image,
+            useTextSymbols=useTextSymbols,
+            alternativeFrames=alternativeFrames,
+        )
+        image = drawPTL(card=face, image=image, alternativeFrames=alternativeFrames)
+        image = drawOther(card=face, image=image, alternativeFrames=alternativeFrames)
+
+    image = drawFuseText(card=card, image=image)
+
     return image
 
 
@@ -521,11 +484,14 @@ def drawTitleLine(
     card: Card,
     image: Image.Image,
     flavorNames: Flavor = {},
+    alternativeFrames: bool = False,
 ) -> Image.Image:
     """
     Draw mana cost. name and flavor name (if present) for a card
     """
-    (layoutInfo, rotate, flip) = getLayoutInfoAndRotation(card)
+    (_, layoutInfo, rotate, flip) = getLayoutInfoAndRotation(
+        card, alternativeFrames=alternativeFrames
+    )
 
     manaCornerRight = layoutInfo.BORDER.RIGHT - C.BORDER
     alignNameLeft = layoutInfo.BORDER.LEFT + C.BORDER
@@ -570,8 +536,8 @@ def drawTitleLine(
                     font=manaFont,
                     text=manaCost,
                     upperBorder=layoutInfo.BORDER.TITLE,
-                    spaceSize=layoutInfo.SIZE.TITLE
-                )
+                    spaceSize=layoutInfo.SIZE.TITLE,
+                ),
             ),
             text=manaCost,
             font=manaFont,
@@ -602,7 +568,7 @@ def drawTitleLine(
                     font=faceSymbolFont,
                     text=faceSymbol,
                     upperBorder=layoutInfo.BORDER.TITLE,
-                    spaceSize=layoutInfo.SIZE.TITLE
+                    spaceSize=layoutInfo.SIZE.TITLE,
                 ),
             ),
             text=faceSymbol,
@@ -627,8 +593,8 @@ def drawTitleLine(
                 font=nameFont,
                 text=displayName,
                 upperBorder=layoutInfo.BORDER.TITLE,
-                spaceSize=layoutInfo.SIZE.TITLE
-            )
+                spaceSize=layoutInfo.SIZE.TITLE,
+            ),
         ),
         text=displayName,
         font=nameFont,
@@ -668,12 +634,15 @@ def drawTypeLine(
     card: Card,
     image: Image.Image,
     hasSetIcon: bool = True,
+    alternativeFrames: bool = False,
 ) -> Image.Image:
     """
     Draws the type line, leaving space for set icon (if present)
     """
 
-    (layoutInfo, rotate, flip) = getLayoutInfoAndRotation(card)
+    (_, layoutInfo, rotate, flip) = getLayoutInfoAndRotation(
+        card, alternativeFrames=alternativeFrames
+    )
 
     alignTypeLeft = layoutInfo.BORDER.LEFT + C.BORDER
     setIconMargin = (C.BORDER + C.SET_ICON_SIZE) if hasSetIcon else 0
@@ -699,8 +668,8 @@ def drawTypeLine(
                 font=typeFont,
                 text=card.type_line,
                 upperBorder=layoutInfo.BORDER.TYPE_LINE,
-                spaceSize=layoutInfo.SIZE.TYPE_LINE
-            )
+                spaceSize=layoutInfo.SIZE.TYPE_LINE,
+            ),
         ),
         text=card.type_line,
         font=typeFont,
@@ -720,6 +689,7 @@ def drawTextBox(
     card: Card,
     image: Image.Image,
     useTextSymbols: bool = True,
+    alternativeFrames: bool = False,
 ) -> Image.Image:
     """
     Draw rules text box.
@@ -729,7 +699,9 @@ def drawTextBox(
     if card.isBasicLand():
         return image
 
-    (layoutInfo, rotate, flip) = getLayoutInfoAndRotation(card)
+    (_, layoutInfo, rotate, flip) = getLayoutInfoAndRotation(
+        card, alternativeFrames=alternativeFrames
+    )
 
     cardText = f"{card.color_indicator_reminder_text}{card.oracle_text}".strip()
     if useTextSymbols:
@@ -802,8 +774,8 @@ def drawFuseText(card: Card, image: Image.Image) -> Image.Image:
                 font=fuseTextFont,
                 text=card.fuse_text,
                 upperBorder=C.SPLIT_LAYOUT_LEFT.BORDER.FUSE,
-                spaceSize=C.SPLIT_LAYOUT_LEFT.SIZE.FUSE
-            )
+                spaceSize=C.SPLIT_LAYOUT_LEFT.SIZE.FUSE,
+            ),
         ),
         text=card.fuse_text,
         font=fuseTextFont,
@@ -816,12 +788,16 @@ def drawFuseText(card: Card, image: Image.Image) -> Image.Image:
     return image
 
 
-def drawPTL(card: Card, image: Image.Image) -> Image.Image:
+def drawPTL(
+    card: Card, image: Image.Image, alternativeFrames: bool = False
+) -> Image.Image:
     """
     Draws Power / Toughness or Loyalty (if present) on the PTL box
     """
 
-    (layoutInfo, rotate, flip) = getLayoutInfoAndRotation(card)
+    (_, layoutInfo, rotate, flip) = getLayoutInfoAndRotation(
+        card, alternativeFrames=alternativeFrames
+    )
 
     if card.hasPT():
         ptl = f"{card.power}/{card.toughness}"
@@ -860,12 +836,16 @@ def drawPTL(card: Card, image: Image.Image) -> Image.Image:
     return image
 
 
-def drawOther(card: Card, image: Image.Image) -> Image.Image:
+def drawOther(
+    card: Card, image: Image.Image, alternativeFrames: bool = False
+) -> Image.Image:
     """
     Draws other information in the bottom section (site and version)
     """
 
-    (layoutInfo, rotate, flip) = getLayoutInfoAndRotation(card)
+    (_, layoutInfo, rotate, flip) = getLayoutInfoAndRotation(
+        card, alternativeFrames=alternativeFrames
+    )
 
     alignOtherLeft = layoutInfo.BORDER.LEFT + C.BORDER
 
@@ -887,8 +867,8 @@ def drawOther(card: Card, image: Image.Image) -> Image.Image:
                 font=credFont,
                 text=C.CREDITS,
                 upperBorder=layoutInfo.BORDER.OTHER,
-                spaceSize=layoutInfo.SIZE.OTHER
-            )
+                spaceSize=layoutInfo.SIZE.OTHER,
+            ),
         ),
         text=C.CREDITS,
         font=credFont,
@@ -905,8 +885,8 @@ def drawOther(card: Card, image: Image.Image) -> Image.Image:
                 font=proxyFont,
                 text=C.VERSION,
                 upperBorder=layoutInfo.BORDER.OTHER,
-                spaceSize=layoutInfo.SIZE.OTHER
-            )
+                spaceSize=layoutInfo.SIZE.OTHER,
+            ),
         ),
         text=C.VERSION,
         font=proxyFont,
@@ -932,6 +912,7 @@ def drawCard(
     flavorNames: Flavor = {},
     useTextSymbols: bool = True,
     fullArtLands: bool = False,
+    alternativeFrames: bool = False,
 ) -> Image.Image:
     """
     Takes card info and external parameters, producing a complete image.
@@ -942,18 +923,19 @@ def drawCard(
     # Card border
     pen.rectangle(((0, 0), C.CARD_SIZE), outline=DEF_BORDER_COLOR, width=5)
 
-    image = makeFrame(card=card, image=image)
+    image = makeFrame(card=card, image=image, alternativeFrames=alternativeFrames)
     if isColored:
         image = colorBorders(card=card, image=image)
     if setIcon is not None:
-        image = pasteSetIcon(card=card, image=image, setIcon=setIcon)
+        image = pasteSetIcon(card=card, image=image, setIcon=setIcon, alternativeFrames=alternativeFrames)
     image = drawText(
         card=card,
         image=image,
         flavorNames=flavorNames,
         useTextSymbols=useTextSymbols,
         fullArtLands=fullArtLands,
-        hasSetIcon=setIcon is not None
+        hasSetIcon=setIcon is not None,
+        alternativeFrames=alternativeFrames,
     )
 
     return image
