@@ -13,7 +13,7 @@ from typing import (
 )
 from typing_extensions import Self
 
-VERSION = "2.1"
+VERSION = "v2.1"
 # 0x23F is the paintbrush symbol
 CREDITS = chr(0x23F) + " https://a11ce.com/bwproxy"
 
@@ -180,9 +180,6 @@ Class, Sagas and Leveler frames?
 Flip as dfc, aftermath as split (with flag)
 Colored Mana symbols
 Flavor Names for DFC, Adventures and possibly Flip?
-Fix Font spacing
-Fix dfc and flip symbols size and alignment
-Fix mana vertical alignment
 Stop changing fonts
 COMMENTS
 """
@@ -256,7 +253,7 @@ def calcLayoutData(
     All the borders are calculated using the sizes
     Almost all the sizes stay the same across layouts,
     except for rules box size and illustration.
-    The text aligment is calculated using box size
+    The text aligment is calculated using box size, only for PTL
     - Adventure frames are weird because they don't start at 0
     and don't have the OTHER line (also illustration is 0)
     - Flip frames have the illustration at the bottom,
@@ -312,12 +309,6 @@ def calcLayoutData(
     layout.SIZE.H = layout.BORDER.RIGHT - layout.BORDER.LEFT
     layout.SIZE.V = layout.BORDER.BOTTOM - layout.BORDER.TITLE
 
-    layout.FONT_MIDDLE.TITLE = (
-        layout.BORDER.TITLE + layout.SIZE.TITLE // 2 - BORDER // 2
-    )
-    layout.FONT_MIDDLE.TYPE_LINE = (
-        layout.BORDER.TYPE_LINE + layout.SIZE.TYPE_LINE // 2 - BORDER // 2
-    )
     layout.FONT_MIDDLE.PTL_H = layout.BORDER.PTL_BOX_LEFT + layout.SIZE.PTL_BOX_H // 2
     layout.FONT_MIDDLE.PTL_V = layout.BORDER.PTL_BOX_TOP + layout.SIZE.PTL_BOX_V // 2
 

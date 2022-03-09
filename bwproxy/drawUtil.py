@@ -91,6 +91,22 @@ def fitMultiLine(
         return (fmtText, font)
 
 
+def calcTopValue(font: ImageFont.FreeTypeFont, text: str, upperBorder: int, spaceSize: int) -> int:
+    """
+    Calculate the vertical value for top anchor in order to center text vertically.
+    See https://pillow.readthedocs.io/en/stable/handbook/text-anchors.html#text-anchors
+    for explanation about font terms
+
+    Middle of the space is at upperBorder + spaceSize // 2,
+    and text is vsize // 2 over the text middle.
+    So if we want space middle and text middle to align,
+    we set top to space middle - vsize // 2 (remember that (0, 0) is top left)
+    """
+    # using getbbox because getsize does get the size :/
+    (_, _, _, vsize) = font.getbbox(text, anchor="lt")
+    return upperBorder + (spaceSize - vsize) // 2
+
+
 # Black frame
 
 
@@ -512,10 +528,8 @@ def drawTitleLine(
     (layoutInfo, rotate, flip) = getLayoutInfoAndRotation(card)
 
     manaCornerRight = layoutInfo.BORDER.RIGHT - C.BORDER
-    manaCornerAscendant = layoutInfo.BORDER.TITLE + C.BORDER
     alignNameLeft = layoutInfo.BORDER.LEFT + C.BORDER
-    alignNameVerticalMiddle = layoutInfo.FONT_MIDDLE.TITLE
-    alignNameAnchor = "lm"
+    alignNameAnchor = "lt"
 
     if rotate:
         image = image.transpose(Image.ROTATE_90)
@@ -525,10 +539,10 @@ def drawTitleLine(
     pen = ImageDraw.Draw(image)
 
     if card.isTokenOrEmblem():
-        # Token and Emblems have no Mana cost, and have a centered title
+        # Token and Emblems have no mana cost, and have a centered title
         alignNameLeft = layoutInfo.BORDER.LEFT + layoutInfo.SIZE.H // 2
-        alignNameAnchor = "mm"
-        maxWidth = layoutInfo.SIZE.H - 2 * C.BORDER
+        alignNameAnchor = "mt"
+        maxNameWidth = layoutInfo.SIZE.H - 2 * C.BORDER
     else:
         manaCost = printSymbols(card.mana_cost)
         maxManaWidth = max(layoutInfo.SIZE.H // 2, C.CARD_H // 16 * len(manaCost))
@@ -542,8 +556,6 @@ def drawTitleLine(
         # if it has not already overflown.
         #
         # It also helps with cards like Progenitus or Emergent Ultimatum
-        #
-        # Will need to fix mana alignment later
         manaFont = fitOneLine(
             fontPath=C.SERIF_FONT,
             text=manaCost,
@@ -552,11 +564,19 @@ def drawTitleLine(
         )
         # Test for easier mana writing
         pen.text(
-            (manaCornerRight, manaCornerAscendant),
+            (
+                manaCornerRight,
+                calcTopValue(
+                    font=manaFont,
+                    text=manaCost,
+                    upperBorder=layoutInfo.BORDER.TITLE,
+                    spaceSize=layoutInfo.SIZE.TITLE
+                )
+            ),
             text=manaCost,
             font=manaFont,
-            fill="black",
-            anchor="ra",
+            fill=C.BLACK,
+            anchor="rt",
         )
         xPos = manaCornerRight - manaFont.getsize(manaCost)[0]
         # Mana was written in reverse, could be useful for colored hybrid or something
@@ -566,30 +586,58 @@ def drawTitleLine(
         #         (xPos, manaCornerAscendant), text=c, font=manaFont, fill="black", anchor="ra"
         #     )
         #     xPos -= manaFont.getsize(c)[0]
-        maxWidth = xPos - alignNameLeft - C.BORDER
+        maxNameWidth = xPos - alignNameLeft - C.BORDER
 
     displayName = flavorNames[card.name] if card.name in flavorNames else card.name
+
+    # Section for card indicator at left of the name (dfc and flip)
+    # It is separated from title because we want it always at max size
     if card.face_type in C.DFC_LAYOUTS or card.face_type == C.FLIP:
-        displayName = f"{C.FONT_CODE_POINT[card.face_symbol]} {displayName}"
+        faceSymbolFont = ImageFont.truetype(C.SERIF_FONT, size=C.TITLE_FONT_SIZE)
+        faceSymbol = f"{C.FONT_CODE_POINT[card.face_symbol]} "
+        pen.text(
+            (
+                alignNameLeft,
+                calcTopValue(
+                    font=faceSymbolFont,
+                    text=faceSymbol,
+                    upperBorder=layoutInfo.BORDER.TITLE,
+                    spaceSize=layoutInfo.SIZE.TITLE
+                ),
+            ),
+            text=faceSymbol,
+            font=faceSymbolFont,
+            fill=C.BLACK,
+            anchor="lt",
+        )
+        faceSymbolSpace = faceSymbolFont.getsize(faceSymbol)[0]
+        alignNameLeft += faceSymbolSpace
+        maxNameWidth -= faceSymbolSpace
 
     nameFont = fitOneLine(
         fontPath=C.SERIF_FONT,
         text=displayName,
-        maxWidth=maxWidth,
+        maxWidth=maxNameWidth,
         fontSize=C.TITLE_FONT_SIZE,
     )
     pen.text(
         (
             alignNameLeft,
-            alignNameVerticalMiddle,
+            calcTopValue(
+                font=nameFont,
+                text=displayName,
+                upperBorder=layoutInfo.BORDER.TITLE,
+                spaceSize=layoutInfo.SIZE.TITLE
+            )
         ),
         text=displayName,
         font=nameFont,
-        fill="black",
+        fill=C.BLACK,
         anchor=alignNameAnchor,
     )
 
-    # Oracle name if card has flavor name
+    # Writing oracle name, if card has also a flavor name
+    # Card name goes at the top of the illustration, centered.
     if card.name in flavorNames and card.face_type not in [
         C.SPLIT,
         C.FUSE,
@@ -604,8 +652,8 @@ def drawTitleLine(
             ),
             card.name,
             font=trueNameFont,
-            fill="black",
-            anchor="ma",
+            fill=C.BLACK,
+            anchor="mt",
         )
 
     if rotate:
@@ -630,7 +678,6 @@ def drawTypeLine(
     alignTypeLeft = layoutInfo.BORDER.LEFT + C.BORDER
     setIconMargin = (C.BORDER + C.SET_ICON_SIZE) if hasSetIcon else 0
     maxWidth = layoutInfo.SIZE.H - 2 * C.BORDER - setIconMargin
-    alignTypeVerticalMiddle = layoutInfo.FONT_MIDDLE.TYPE_LINE
 
     if rotate:
         image = image.transpose(Image.ROTATE_90)
@@ -646,11 +693,19 @@ def drawTypeLine(
         fontSize=C.TYPE_FONT_SIZE,
     )
     pen.text(
-        (alignTypeLeft, alignTypeVerticalMiddle),
+        (
+            alignTypeLeft,
+            calcTopValue(
+                font=typeFont,
+                text=card.type_line,
+                upperBorder=layoutInfo.BORDER.TYPE_LINE,
+                spaceSize=layoutInfo.SIZE.TYPE_LINE
+            )
+        ),
         text=card.type_line,
         font=typeFont,
-        fill="black",
-        anchor="lm",
+        fill=C.BLACK,
+        anchor="lt",
     )
 
     if rotate:
@@ -714,7 +769,7 @@ def drawTextBox(
         (alignRulesTextLeft, alignRulesTextAscendant),
         text=fmtText,
         font=textFont,
-        fill="black",
+        fill=C.BLACK,
         anchor="la",
     )
 
@@ -733,7 +788,7 @@ def drawFuseText(card: Card, image: Image.Image) -> Image.Image:
     image = image.transpose(Image.ROTATE_90)
     pen = ImageDraw.Draw(image)
 
-    typeFont = fitOneLine(
+    fuseTextFont = fitOneLine(
         fontPath=C.MONOSPACE_FONT,
         text=card.fuse_text,
         maxWidth=C.CARD_V - 2 * C.BORDER,
@@ -741,11 +796,19 @@ def drawFuseText(card: Card, image: Image.Image) -> Image.Image:
     )
     # Using SPLIT_LAYOUT_LEFT because it's indistinguishable from SPLIT_LAYOUT_RIGHT
     pen.text(
-        (C.BORDER, C.SPLIT_LAYOUT_LEFT.FONT_MIDDLE.FUSE),
+        (
+            C.BORDER,
+            calcTopValue(
+                font=fuseTextFont,
+                text=card.fuse_text,
+                upperBorder=C.SPLIT_LAYOUT_LEFT.BORDER.FUSE,
+                spaceSize=C.SPLIT_LAYOUT_LEFT.SIZE.FUSE
+            )
+        ),
         text=card.fuse_text,
-        font=typeFont,
-        fill="black",
-        anchor="lm",
+        font=fuseTextFont,
+        fill=C.BLACK,
+        anchor="lt",
     )
 
     image = image.transpose(Image.ROTATE_270)
@@ -785,7 +848,7 @@ def drawPTL(card: Card, image: Image.Image) -> Image.Image:
         (layoutInfo.FONT_MIDDLE.PTL_H, layoutInfo.FONT_MIDDLE.PTL_V),
         text=ptl,
         font=ptlFont,
-        fill="black",
+        fill=C.BLACK,
         anchor="mm",
     )
 
@@ -805,7 +868,6 @@ def drawOther(card: Card, image: Image.Image) -> Image.Image:
     (layoutInfo, rotate, flip) = getLayoutInfoAndRotation(card)
 
     alignOtherLeft = layoutInfo.BORDER.LEFT + C.BORDER
-    alignVertical = layoutInfo.BORDER.OTHER + layoutInfo.SIZE.OTHER // 2
 
     if card.face_type == C.ADV and card.face_num == 1:
         return image
@@ -819,21 +881,37 @@ def drawOther(card: Card, image: Image.Image) -> Image.Image:
 
     credFont = ImageFont.truetype(C.MONOSPACE_FONT, size=C.OTHER_FONT_SIZE)
     pen.text(
-        (alignOtherLeft, alignVertical),
+        (
+            alignOtherLeft,
+            calcTopValue(
+                font=credFont,
+                text=C.CREDITS,
+                upperBorder=layoutInfo.BORDER.OTHER,
+                spaceSize=layoutInfo.SIZE.OTHER
+            )
+        ),
         text=C.CREDITS,
         font=credFont,
-        fill="black",
-        anchor="lm",
+        fill=C.BLACK,
+        anchor="lt",
     )
     credLength = pen.textlength(text=C.CREDITS + "   ", font=credFont)
 
     proxyFont = ImageFont.truetype(C.SERIF_FONT, size=C.OTHER_FONT_SIZE * 4 // 3)
     pen.text(
-        (alignOtherLeft + credLength, alignVertical - 5),
-        text=f"v{C.VERSION}",
+        (
+            alignOtherLeft + credLength,
+            calcTopValue(
+                font=proxyFont,
+                text=C.VERSION,
+                upperBorder=layoutInfo.BORDER.OTHER,
+                spaceSize=layoutInfo.SIZE.OTHER
+            )
+        ),
+        text=C.VERSION,
         font=proxyFont,
-        fill="black",
-        anchor="lm",
+        fill=C.BLACK,
+        anchor="lt",
     )
 
     if rotate:
