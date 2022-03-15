@@ -55,30 +55,59 @@ def searchToken(tokenName: str, tokenType: str = C.TOKEN) -> List[Card]:
 def parseToken(text: str, name: Optional[str] = None) -> Card:
     data = [line.strip() for line in text.split(";")]
 
-    if data[1]:
-        type_line = f"Token {data[0]} — {data[1]}"
+    if data[0].lower() == "legendary":
+        supertype = "Legendary "
+        data.pop(0)
     else:
-        type_line = f"Token {data[0]}"
+        supertype = ""
 
-    name = name if name else data[1]
+    if "/" in data[0].lower():
+        pt = data[0].split("/")
+        power = pt[0]
+        toughness = pt[1]
+        data.pop(0)
+    else:
+        power = None
+        toughness = None
+
+    colors = [color for color in data.pop(0) if color != "C"]
+    subtypesString = data.pop(0)
+
+    possibleTypes = [word.strip().title() for word in data[0].split()]
+    if set(possibleTypes) <= set(C.CARD_TYPES):
+        # There are subtypes
+        types = f"{supertype}{' '.join(possibleTypes)}"
+        data.pop(0)
+        subtypes = " ".join([t.strip().title() for t in subtypesString.split()])
+        name = name if name else subtypes
+        type_line = f"Token {types} — {subtypes}"
+    else:
+        # No subtypes
+        typesString = subtypesString
+        possibleTypes = [word.strip().title() for word in typesString.split()]
+        type_line = f"Token {supertype}{' '.join(possibleTypes)}"
+
+    if name is None:
+        raise Exception(f"Missing name for token without subtypes: {text}")
+        
     jsonData = {
         "type_line": type_line,
         "name": name,
-        "colors": [color for color in data[2] if color != "C"],
+        "colors": colors,
         "layout": C.TOKEN,
         "mana_cost": "",
     }
+
     if "Creature" in jsonData["type_line"] or "Vehicle" in jsonData["type_line"]:
         try:
-            pt = data[3].split("/")
-            jsonData["power"] = pt[0]
-            jsonData["toughness"] = pt[1]
-            other = 4
+            assert power is not None
+            assert toughness is not None
+            jsonData["power"] = power
+            jsonData["toughness"] = toughness
         except:
             raise Exception(f"Power/Toughness missing for token: {name}")
-    else:
-        other = 3
-    text_lines = [line for line in data[other:] if line]
+    
+    text_lines = [line for line in data if line]
     jsonData["oracle_text"] = "\n".join(text_lines)
     return Card(jsonData)
 

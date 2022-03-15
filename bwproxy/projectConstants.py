@@ -120,6 +120,21 @@ FRAME_COLORS = {
     "default": "#000000",
 }
 
+CARD_TYPES = [
+    "Land",
+    "Creature",
+    "Artifact",
+    "Enchantment",
+    "Instant",
+    "Sorcery",
+    "Planeswalker",
+    "Tribal",
+    "Basic",
+    "Legendary",
+    "Snow",
+    "World",
+]
+
 BASIC_LANDS_NONSNOW = ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]
 BASIC_LANDS = BASIC_LANDS_NONSNOW + [
     f"Snow-Covered {l}" for l in BASIC_LANDS_NONSNOW if l != "Wastes"

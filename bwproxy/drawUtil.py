@@ -220,6 +220,28 @@ def makeFrame(
                 width=5,
             )
 
+        if face.isTokenOrEmblem():
+            pen.arc(
+                (
+                    (0, layoutInfo.BORDER.ILLUSTRATION - 4),
+                    (C.TOKEN_ARC_WIDTH, layoutInfo.BORDER.ILLUSTRATION + C.TOKEN_ARC_WIDTH - 4)
+                ),
+                start=180,
+                end=270,
+                fill=DEF_BORDER_COLOR,
+                width=5,
+            )
+            pen.arc(
+                (
+                    (layoutInfo.BORDER.RIGHT - C.TOKEN_ARC_WIDTH, layoutInfo.BORDER.ILLUSTRATION - 4),
+                    (layoutInfo.BORDER.RIGHT, layoutInfo.BORDER.ILLUSTRATION + C.TOKEN_ARC_WIDTH - 4)
+                ),
+                start=270,
+                end=360,
+                fill=DEF_BORDER_COLOR,
+                width=5,
+            )
+
         if rotate:
             image = image.transpose(Image.ROTATE_270)
         elif flip:
