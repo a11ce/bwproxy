@@ -50,18 +50,17 @@ If something doesn't work, please [open an issue on GitHub](https://github.com/a
 1. If the token or emblem name is unique in the Scryfall database, all relevant info will be fetched automatically and put in the card;
 1. The tokens will have an arched top, to better distinguish them from normal cards, and the emblems will have the Planeswalker symbol on the illustration. The symbol can be disabled with the `--full-art-lands` flag. They will also have their names centered;
 1. If the token you are searching is not uniquely identified by its name (or you want some custom token!), you can specify the token info in detail.
-    - The format is `(token) Supertypes; Subtypes; Colors; P/T; text rule 1; text rule 2; ... [Custom Name]`;
+    - The format is `(token) Legendary; P/T; colors; Subtypes; Types; text rule 1; text rule 2; ... [Custom Name]`. This should (mostly) respect the order in which the attributes are listed on the token-making card;
     - Spacing around the semicolon does not matter;
-    - If a token does not have subtypes, leave the field empty;
+    - If a token does not have subtypes or Power/Toughness, or is not Legendary, skip the field;
     - The color should be given as a sequence of official abbreviations: `W` for White, `U` for Blue, `B` for Black, `R` for Red, `G` for Green. Colorless can be either an empty field or `C`. These letters **must** be uppercase;
-    - Power/Toughness are relevant only for creatures and vehicles: if the token does not have them, skip that part;
     - To insert symbols in the token text, enclose the symbol abbreviation in braces: two generic mana is `{2}`, tap is `{T}`, etc;
     - If a token does not have a custom name, the subtypes will be used;
     - Here are some examples:
-        - The **Marit Lage** token can be specified as `(token) Legendary Creature; Avatar; B; 20/20; Flying, indestructible [Marit Lage]`
-        - **Tamiyo's Notebook** (from *Tamiyo, Compleated Sage*) can be specified as `(token) Legendary Artifact; ; ; Spells you cas cost {2} less to cast; {T}: Draw a card [Tamiyo's Notebook]`
-        - An **Inkling** token from *Strixhaven* can be specified as `(token) Creature;Inkling;WB;2/1;Flying`
-        - A **Treasure** token can be specified as `(token) Artifact; Treasure; C; {T}, Sacrifice this artifact: Add one mana of any color`
+        - The **Marit Lage** token can be specified as `(token) Legendary; 20/20; B; Avatar; Creature; Flying, indestructible [Marit Lage]`
+        - **Tamiyo's Notebook** (from *Tamiyo, Compleated Sage*) can be specified as `(token) Legendary; ; Artifact; Spells you cas cost {2} less to cast; {T}: Draw a card [Tamiyo's Notebook]`
+        - An **Inkling** token from *Strixhaven* can be specified as `(token) 2/1;WB;Inkling;Creature;Flying`
+        - A **Treasure** token can be specified as `(token) C; Treasure; Artifact; {T}, Sacrifice this artifact: Add one mana of any color`
 
 --- 
 
