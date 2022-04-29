@@ -17,7 +17,7 @@ If something doesn't work, please [open an issue on GitHub](https://github.com/a
 ### Download
 
 * Install [Python](https://www.python.org)
-* Get dependencies with `python3 -m pip install scrython pillow tqdm` 
+* Get dependencies with `python3 -m pip install -r requirements.txt`
 * Download with `git clone https://github.com/a11ce/bwproxy.git` or via the [Github link](https://github.com/a11ce/bwproxy/releases/latest)
 
 ## Make some cards!
