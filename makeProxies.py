@@ -1,211 +1,354 @@
-from mtgsdk import Card
-from PIL import Image, ImageDraw, ImageFont
+from __future__ import annotations
+from typing import Dict, List, Optional
+from scrython import Named, Search, ScryfallError
+from PIL import Image
 from tqdm import tqdm
-import sys
 import pickle
-import textwrap
 import re
 import os
 import argparse
 
-import drawUtil
+import bwproxy.drawUtil as drawUtil
+import bwproxy.projectConstants as C
+from bwproxy.projectTypes import Card, Deck, Flavor
 
 
-def loadCards(fileLoc, deckName):
+def disambiguateTokenResults(query: str, results: List[Card]) -> List[Card]:
+    singleFaced: List[Card] = []
+    disambiguated: Dict[str, Card] = {}
+    for card in results:
+        try:
+            singleFaced.extend(card.card_faces)
+        except:
+            singleFaced.append(card)
+    for card in singleFaced:
+        if (
+            query.lower().replace(",", "") in card.name.lower().replace(",", "")
+            and card.type_line != "Token"
+            and card.type_line != ""
+        ):
+            index = f"{card.name}\n{card.type_line}\n{sorted(card.colors)}\n{card.oracle_text}"
+            if card.hasPT():
+                index += f"\n{card.power}/{card.toughness}"
+            disambiguated[index] = card
 
-    cacheLoc = "cardcahe/cardcache.p"
+    return list(disambiguated.values())
 
-    if os.path.exists(cacheLoc):
-        with open(cacheLoc, "rb") as p:
+
+def searchToken(tokenName: str, tokenType: str = C.TOKEN) -> List[Card]:
+    if tokenType == C.EMBLEM:
+        exactName = f"{tokenName} Emblem"
+    else:
+        exactName = tokenName
+    try:
+        cardQuery = Search(q=f"type:{tokenType} !'{exactName}")
+        results = [Card(cardData) for cardData in cardQuery.data()]  # type: ignore
+    except ScryfallError:
+        try:
+            cardQuery = Search(q=f"type:{tokenType} {tokenName}")
+            results = [Card(cardData) for cardData in cardQuery.data()]  # type: ignore
+        except ScryfallError:
+            results: List[Card] = []
+    return disambiguateTokenResults(query=tokenName, results=results)
+
+
+def parseToken(text: str, name: Optional[str] = None) -> Card:
+    data = [line.strip() for line in text.split(";")]
+
+    if data[0].lower() == "legendary":
+        supertype = "Legendary "
+        data.pop(0)
+    else:
+        supertype = ""
+
+    if "/" in data[0].lower():
+        pt = data[0].split("/")
+        power = pt[0]
+        toughness = pt[1]
+        data.pop(0)
+    else:
+        power = None
+        toughness = None
+
+    colors = [color for color in data.pop(0) if color != "C"]
+    subtypesString = data.pop(0)
+
+    possibleTypes = [word.strip().title() for word in data[0].split()]
+    if set(possibleTypes) <= set(C.CARD_TYPES):
+        # There are subtypes
+        types = f"{supertype}{' '.join(possibleTypes)}"
+        data.pop(0)
+        subtypes = " ".join([t.strip().title() for t in subtypesString.split()])
+        name = name if name else subtypes
+        type_line = f"Token {types} — {subtypes}"
+    else:
+        # No subtypes
+        typesString = subtypesString
+        possibleTypes = [word.strip().title() for word in typesString.split()]
+        type_line = f"Token {supertype}{' '.join(possibleTypes)}"
+
+    if name is None:
+        raise Exception(f"Missing name for token without subtypes: {text}")
+        
+    jsonData = {
+        "type_line": type_line,
+        "name": name,
+        "colors": colors,
+        "layout": C.TOKEN,
+        "mana_cost": "",
+    }
+
+    if "Creature" in jsonData["type_line"] or "Vehicle" in jsonData["type_line"]:
+        try:
+            assert power is not None
+            assert toughness is not None
+            jsonData["power"] = power
+            jsonData["toughness"] = toughness
+        except:
+            raise Exception(f"Power/Toughness missing for token: {name}")
+    
+    text_lines = [line for line in data if line]
+    jsonData["oracle_text"] = "\n".join(text_lines)
+    return Card(jsonData)
+
+
+def loadCards(
+    fileLoc: str, ignoreBasicLands: bool = False, alternativeFrames: bool = False
+) -> tuple[Deck, Flavor]:
+
+    cardCache: Dict[str, Card]
+    tokenCache: Dict[str, Card]
+
+    if os.path.exists(C.CACHE_LOC):
+        with open(C.CACHE_LOC, "rb") as p:
             cardCache = pickle.load(p)
     else:
         cardCache = {}
 
+    if os.path.exists(C.TOKEN_CACHE_LOC):
+        with open(C.TOKEN_CACHE_LOC, "rb") as p:
+            tokenCache = pickle.load(p)
+    else:
+        tokenCache = {}
+
     with open(fileLoc) as f:
-        cardsInDeck = []
-        flavorNames = {}
+        cardsInDeck: Deck = []
+        flavorNames: Flavor = {}
 
-        for line in tqdm(f):
-            line = line.strip()
-            cardCount = re.findall("^([0-9]+)x?", line)
-            flavorName = re.findall("\[(.*?)\]", line)
-            cardName = line.split(cardCount[0])[1].strip()
+        tokenEmblemRegex = re.compile(r"^(?:\d+x )?\((token|emblem)\)", flags=re.I)
+        if tokenEmblemRegex:
+            pass
+        doubleSpacesRegex = re.compile(r" {2,}")
+        removeCommentsRegex = re.compile(r"^//.*$|#.*$")
+        cardCountRegex = re.compile(r"^([0-9]+)x?")
+        flavorNameRegex = re.compile(r"\[(.*?)\]")
+        cardNameRegex = re.compile(
+            r"^(?:\d+x? )?(?:\((?:token|emblem)\) )?(.*?)(?: \[.*?\])?$", flags=re.I
+        )
 
-            if len(flavorName) > 0:
-                flavorName = flavorName[0]
-                cardName = (cardName.split(flavorName)[0])[:-1].strip()
-                flavorNames[cardName] = flavorName
+        for line in f:
+            line = removeCommentsRegex.sub("", line)
+            line = doubleSpacesRegex.sub(" ", line.strip())
+
+            if line == "":
+                continue
+
+            cardCountMatch = cardCountRegex.search(line)
+            cardCount = int(cardCountMatch.groups()[0]) if cardCountMatch else 1
+
+            flavorNameMatch = flavorNameRegex.search(line)
+            cardNameMatch = cardNameRegex.search(line)
+            tokenMatch = tokenEmblemRegex.search(line)
+
+            if cardNameMatch:
+                cardName = cardNameMatch.groups()[0]
+            else:
+                raise Exception(f"No card name found in line {line}")
+
+            if ignoreBasicLands and cardName in C.BASIC_LANDS:
+                print(
+                    f"You have requested to ignore basic lands. {cardName} will not be printed."
+                )
+                continue
+
+            if tokenMatch:
+                tokenType = tokenMatch.groups()[0].lower()
+                if ";" in cardName:
+                    if flavorNameMatch:
+                        tokenName = flavorNameMatch.groups()[0]
+                    else:
+                        tokenName = None
+                    tokenData = parseToken(text=cardName, name=tokenName)
+                elif cardName in tokenCache:
+                    tokenData = tokenCache[cardName]
+                else:
+                    print(f"{cardName} not in cache. searching...")
+                    tokenList = searchToken(tokenName=cardName, tokenType=tokenType)
+
+                    if len(tokenList) == 0:
+                        print(f"Skipping {cardName}. No corresponding tokens found")
+                        continue
+                    if len(tokenList) > 1:
+                        print(
+                            f"Skipping {cardName}. Too many tokens found. Consider specifying the token info in the input file"
+                        )
+                        continue
+                    tokenData = tokenList[0]
+
+                tokenCache[cardName] = tokenData
+                for _ in range(cardCount):
+                    cardsInDeck.append(tokenData)
+                continue
 
             if cardName in cardCache:
-                cardDat = cardCache[cardName]
-
+                cardData = cardCache[cardName]
             else:
-                print("{} not in cache. searching...".format(cardName))
-                searchResults = Card.where(name=cardName).all()
+                print(f"{cardName} not in cache. searching...")
+                try:
+                    cardData: Card = Card(Named(fuzzy=cardName))
+                except ScryfallError as err:
+                    print(f"Skipping {cardName}. {err}")
+                    continue
 
-                if len(searchResults) > 0:
-                    cardDat = searchResults[0]
-                    cardCache[cardName] = cardDat
-                else:
-                    print("warning! {} not found in search".format(cardName))
-                    cardDat = None
+                print(f"Card found! {cardData.name}")
+                cardCache[cardName] = cardData
 
-            if cardName in [
-                    "Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"
-            ]:
+            if ignoreBasicLands and cardData.name in C.BASIC_LANDS:
                 print(
-                    "{} will not be printed. use the basic land generator (check readme) instead"
-                    .format(cardName))
-                cardDat = None
+                    f"You have requested to ignore basic lands. {cardName} will not be printed."
+                )
+                continue
 
-            elif cardCount[0] != "1":
-                print(
-                    "warning! BWProxy is singleton only for now. one {} will be printed"
-                    .format(cardName))
+            if cardData.hasFlavorName():
+                flavorNames[cardData.name] = cardData.flavor_name
 
-            cardsInDeck.append(cardDat)
+            if flavorNameMatch:
+                flavorName = flavorNameMatch.groups()[0]
+                flavorNames[cardData.name] = flavorName
 
-    os.makedirs(os.path.dirname(cacheLoc), exist_ok=True)
-    with open(cacheLoc, "wb") as p:
+            if cardData.layout in C.DFC_LAYOUTS or (
+                cardData.layout == C.FLIP and alternativeFrames
+            ):
+                facesData = cardData.card_faces
+                for _ in range(cardCount):
+                    cardsInDeck.append(facesData[0])
+                    cardsInDeck.append(facesData[1])
+            else:
+                for _ in range(cardCount):
+                    cardsInDeck.append(cardData)
+
+    os.makedirs(os.path.dirname(C.CACHE_LOC), exist_ok=True)
+    with open(C.CACHE_LOC, "wb") as p:
         pickle.dump(cardCache, p)
 
-    return [card for card in cardsInDeck if card is not None], flavorNames
+    os.makedirs(os.path.dirname(C.TOKEN_CACHE_LOC), exist_ok=True)
+    with open(C.TOKEN_CACHE_LOC, "wb") as p:
+        pickle.dump(tokenCache, p)
 
-
-def makeImage(card, setSymbol, flavorNames={}, useColor=False):
-    if useColor:
-        if not card.colors:
-            frameColor = "#919799"
-        elif len(card.colors) == 1:
-            frameColor = drawUtil.FRAME_COLORS[card.colors[0]]
-        else:
-            frameColor = [drawUtil.FRAME_COLORS[col] for col in card.colors]
-
-    else:
-        frameColor = "black"
-    cardImg, pen = drawUtil.blankCard(frameColor=frameColor)
-    if isinstance(frameColor, list):
-        frameColor = "black"
-
-    # mana cost TODO cleanup and fix phyrexian
-    costFont = ImageFont.truetype("MagicSymbols2008.ttf", 60)
-    phyrexianFont = ImageFont.truetype("matrixb.ttf", 60)
-    xPos = 675
-    if card.mana_cost is not None:
-        fmtCost = "".join(
-            list(filter(lambda c: c not in "{} ", card.mana_cost)))
-
-        for c in fmtCost[::-1]:
-            if c in "/P":
-                pen.text((xPos, 75),
-                         c,
-                         font=phyrexianFont,
-                         fill="black",
-                         anchor="ra")
-            else:
-                pen.text((xPos, 60),
-                         c,
-                         font=costFont,
-                         fill="black",
-                         anchor="ra")
-            xPos -= 0 if c == "/" else 20 if c == "P" else 40
-
-    #575 default width for name, default font 60
-    if card.name in flavorNames:
-        nameFont = drawUtil.fitOneLine("matrixb.ttf", flavorNames[card.name],
-                                       xPos - 100, 60)
-        pen.text((70, 85),
-                 flavorNames[card.name],
-                 font=nameFont,
-                 fill="black",
-                 anchor="lm")
-    else:
-        nameFont = drawUtil.fitOneLine("matrixb.ttf", card.name, xPos - 100,
-                                       60)
-        pen.text((70, 85), card.name, font=nameFont, fill="black", anchor="lm")
-
-    # 600 width for typeline with symbol, default font 60
-    typeLine = drawUtil.makeTypeLine(card.supertypes, card.types,
-                                     card.subtypes)
-    typeFont = drawUtil.fitOneLine("matrixb.ttf", typeLine, 540, 60)
-    pen.text((70, 540), typeLine, font=typeFont, fill="black", anchor="lm")
-
-    if setSymbol is not None:
-        cardImg.paste(setSymbol, (620, 520), setSymbol)
-
-    fmtText, textFont = drawUtil.fitMultiLine("MPLANTIN.ttf", card.text, 600,
-                                              300, 40)
-    pen.text((70, 625), fmtText, font=textFont, fill="black")
-
-    if "Creature" in typeLine or "Planeswalker" in typeLine:
-        pen.rectangle([550, 930, 675, 1005],
-                      outline=frameColor,
-                      fill="white",
-                      width=5)
-
-        if "Creature" in typeLine:
-            # TODO two-digit p/t
-            pt = "{}/{}".format(card.power, card.toughness)
-            ptFont = drawUtil.fitOneLine("MPLANTIN.ttf", pt, 85, 60)
-            pen.text((570, 970), pt, font=ptFont, fill="black", anchor="lm")
-
-        else:
-            loyaltyFont = ImageFont.truetype("MPLANTIN.ttf", 60)
-            pen.text((595, 940), card.loyalty, font=loyaltyFont, fill="black")
-
-    proxyFont = ImageFont.truetype("matrixb.ttf", 30)
-    pen.text((70, 945),
-             "v{}".format(drawUtil.VERSION),
-             font=proxyFont,
-             fill="black")
-
-    if card.name in flavorNames:
-        pen.text((375, 490),
-                 card.name,
-                 font=proxyFont,
-                 fill="black",
-                 anchor="md")
-
-    brushFont = ImageFont.truetype("MagicSymbols2008.ttf", 20)
-    pen.text((70, 970), "L", font=brushFont, fill="black")
-
-    credFont = ImageFont.truetype("MPLANTIN.ttf", 25)
-    pen.text((120, 967), "a11ce.com/BWProxy", font=credFont, fill="black")
-
-    return (card.name, cardImg)
+    return (cardsInDeck, flavorNames)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description='Generate printable MTG proxies')
-    parser.add_argument("decklistPath",
-                        metavar="decklist_path",
-                        help="location of decklist file")
-    parser.add_argument("setSymbolPath",
-                        nargs="?",
-                        metavar="set_symbol_path",
-                        type=str,
-                        help="location of set symbol file (optional)")
-    parser.add_argument("--color",
-                        action="store_true",
-                        help="print card frames and mana symbols in color")
+    parser = argparse.ArgumentParser(description="Generate printable MTG proxies")
+    parser.add_argument(
+        "decklistPath",
+        metavar="decklist_path",
+        help="location of decklist file",
+    )
+    parser.add_argument(
+        "--icon-path",
+        "-i",
+        metavar="icon_path",
+        dest="setIconPath",
+        help="location of set icon file",
+    )
+    parser.add_argument(
+        "--page-format",
+        "-p",
+        default=C.PAGE_FORMAT[0],
+        choices=C.PAGE_FORMAT,
+        dest="pageFormat",
+        help="printing page format",
+    )
+    parser.add_argument(
+        "--color",
+        "-c",
+        action="store_true",
+        help="print card frames and mana symbols in color",
+    )
+    parser.add_argument(
+        "--no-text-symbols",
+        action="store_false",
+        dest="useTextSymbols",
+        help="print cards with e.g. {W} instead of the corresponding symbol",
+    )
+    parser.add_argument(
+        "--small",
+        "-s",
+        action="store_true",
+        help="print cards at 75%% in size, allowing to fit more in one page",
+    )
+    parser.add_argument(
+        "--no-card-space",
+        action="store_true",
+        dest="noCardSpace",
+        help="print cards without space between them",
+    )
+    parser.add_argument(
+        "--full-art-lands",
+        action="store_true",
+        dest="fullArtLands",
+        help="print full art basic lands instead of big symbol basic lands",
+    )
+    parser.add_argument(
+        "--ignore-basic-lands",
+        "--ignore-basics",
+        action="store_true",
+        dest="ignoreBasicLands",
+        help="skip basic lands when generating images",
+    )
+    parser.add_argument(
+        "--alternative-frames",
+        action="store_true",
+        dest="alternativeFrames",
+        help="print flip cards as DFC, aftermath as regular split",
+    )
 
     args = parser.parse_args()
 
-    deckName = args.decklistPath.split(".")[0]
-    if args.setSymbolPath:
-        setSymbol = Image.open(args.setSymbolPath).convert("RGBA").resize(
-            (60, 60))
+    decklistPath: str = args.decklistPath
+
+    deckName = decklistPath.split("/")[-1].split("\\")[-1].split(".")[0]
+    if args.setIconPath:
+        setIcon = drawUtil.resizeSetIcon(Image.open(args.setIconPath).convert("RGBA"))
     else:
-        setSymbol = None
+        setIcon = None
 
-    allCards, flavorNames = loadCards(args.decklistPath, deckName)
+    allCards, flavorNames = loadCards(
+        decklistPath,
+        ignoreBasicLands=args.ignoreBasicLands,
+        alternativeFrames=args.alternativeFrames,
+    )
     images = [
-        makeImage(card,
-                  setSymbol,
-                  flavorNames=flavorNames,
-                  useColor=args.color) for card in tqdm(allCards)
+        drawUtil.drawCard(
+            card=card,
+            setIcon=setIcon,
+            flavorNames=flavorNames,
+            isColored=args.color,
+            useTextSymbols=args.useTextSymbols,
+            fullArtLands=args.fullArtLands,
+            alternativeFrames=args.alternativeFrames,
+        )
+        for card in tqdm(
+            allCards,
+            desc="Card drawing progress: ",
+            unit="card",
+        )
     ]
-
-    print(images)
-    drawUtil.savePages(images, deckName)
+    drawUtil.savePages(
+        images=images,
+        deckName=deckName,
+        small=args.small,
+        pageFormat=args.pageFormat,
+        noCardSpace=args.noCardSpace,
+    )
